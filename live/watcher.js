@@ -43,12 +43,16 @@ class Session {
     this.stopTimer    = null;
     this.settleTimer  = null;
     this.onChanged    = onChanged;
+    this.currentTool  = null;
   }
 
   setState(s) {
     if (s === this.state) return;
     this.state = s;
-    if (s === 'idle' || s === 'sleeping' || s === 'disconnected') this.detail = null;
+    if (s === 'idle' || s === 'sleeping' || s === 'disconnected') {
+      this.detail = null;
+      this.currentTool = null;
+    }
     console.log(`[${this.id}] → ${s}`);
     this.onChanged();
   }
@@ -70,6 +74,7 @@ class Session {
       this.toolWindow.push(Date.now());
       this.clearHappy();
       const names = event.tools;
+      this.currentTool = names[0] ?? null;
       if (names.some(n => n === 'Agent'))              { this.setState('juggling'); this.startSettle(); return; }
       if (this.toolWindow.length > 3)                  { this.setState('juggling'); this.startSettle(); return; }
       if (names.some(n => WRITE_TOOLS.has(n)))         { this.setState('typing');   this.startSettle(); return; }
@@ -161,7 +166,7 @@ function broadcast() {
   const payload = JSON.stringify({
     sessions: [...sessions.values()].map(s => ({
       id: s.id, state: s.state, isMain: s.isMain,
-      title: s.title, detail: s.detail,
+      title: s.title, detail: s.detail, currentTool: s.currentTool,
     })),
     ts: Date.now(),
   });
@@ -176,7 +181,7 @@ wss.on('connection', ws => {
   ws.send(JSON.stringify({
     sessions: [...sessions.values()].map(s => ({
       id: s.id, state: s.state, isMain: s.isMain,
-      title: s.title, detail: s.detail,
+      title: s.title, detail: s.detail, currentTool: s.currentTool,
     })),
     ts: Date.now(),
   }));

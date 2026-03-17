@@ -21,6 +21,7 @@
       display: flex; flex-direction: column; align-items: center;
       transition: opacity 0.7s, transform 0.7s;
     }
+    .panel.active { transform: translateY(-22px); }
     .panel.leaving { opacity: 0; transform: translateY(16px); pointer-events: none; }
     .canvas-wrap { position: relative; display: inline-block; }
     canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block;
@@ -404,6 +405,8 @@ class SessionPanel {
 
     this.el = document.createElement('div');
     this.el.className = 'panel';
+    const working = new Set(['typing','thinking','wizard','juggling','sweeping','overheated','happy']);
+    if (working.has(this.target)) this.el.classList.add('active');
     this.el.appendChild(wrap);
     this.el.appendChild(this.stateEl);
     this.el.appendChild(this.titleEl);
@@ -434,10 +437,17 @@ class SessionPanel {
     if (!STATES[s]) return;
     this.target = s;
     this.stateEl.textContent = STATES[s].label;
+    const working = new Set(['typing','thinking','wizard','juggling','sweeping','overheated','happy']);
+    this.el.classList.toggle('active', working.has(s));
   }
 
   setTitle(t) {
     if (t && !this.titleEl.textContent) this.titleEl.textContent = t;
+  }
+
+  setCurrentTool(tool) {
+    const label = STATES[this.target]?.label ?? 'IDLE';
+    this.stateEl.textContent = tool ? `${label} (${tool})` : label;
   }
 
   setDetail(d) {
@@ -494,6 +504,7 @@ function refreshScales() {
 }
 
 function onSessionsUpdate(sessions) {
+  sessions = sessions.filter(s => s.state !== 'disconnected');
   const newIds = new Set(sessions.map(s => s.id));
 
   // Remove gone sessions
@@ -514,6 +525,7 @@ function onSessionsUpdate(sessions) {
     }
     panels.get(s.id).setTitle(s.title);
     panels.get(s.id).setDetail(s.detail);
+    panels.get(s.id).setCurrentTool(s.currentTool ?? null);
   }
 
   refreshScales();
