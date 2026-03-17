@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>小螃蟹在水上漂流</title>
+  <style>
+    body {
+      background: #1a1a2e;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      font-family: monospace;
+    }
+    canvas {
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      border: 2px solid #334;
+      border-radius: 4px;
+    }
+    p {
+      color: #778;
+      font-size: 11px;
+      margin-top: 8px;
+      letter-spacing: 1px;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="400" height="300"></canvas>
+  <p>🦀 vibe animation · crab floating</p>
+
+  <script>
+    'use strict';
+
+    // ────────────────────────────────────────────
+    //  Canvas setup — 2× pixel scale
+    // ────────────────────────────────────────────
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+
+    // Internal low-res buffer: 200×150
+    const W = 200, H = 150;
+    const buf = document.createElement('canvas');
+    buf.width = W; buf.height = H;
+    const g = buf.getContext('2d');
+    g.imageSmoothingEnabled = false;
+
+    // ────────────────────────────────────────────
+    //  16-color palette
+    // ────────────────────────────────────────────
+    const P = {
+      sky1:  '#5B8DD9',   // deep sky
+      sky2:  '#8AB4F8',   // light sky
+      cloud: '#FFFFFF',   // cloud white
+      sun:   '#FFE066',   // sun yellow
+      water1:'#2563A8',   // deep water
+      water2:'#3B82C4',   // mid water
+      water3:'#6AACE0',   // wave crest
+      foam:  '#BDE0FF',   // foam
+      body:  '#E86A33',   // crab orange-red
+      belly: '#F5D6A0',   // crab belly
+      claw:  '#C4531A',   // crab darker claw
+      eye:   '#111111',   // eye
+      hat:   '#EE4444',   // hat red
+      hatb:  '#882222',   // hat brim dark
+      dark:  '#1A1A2E',   // background dark
+      clear: null,        // transparent
+    };
+
+    // ────────────────────────────────────────────
+    //  Sprite pixel data (16×12, 0=transparent)
+    //  Colors indexed: 1=body, 2=belly, 3=claw,
+    //                  4=eye, 5=hat, 6=hatb
+    // ────────────────────────────────────────────
+    const CI = { 1:P.body, 2:P.belly, 3:P.claw, 4:P.eye, 5:P.hat, 6:P.hatb };
+
+    // Frame 0: antenna up
+    const F0 = [
+      [0,0,0,0,0,5,5,5,5,5,0,0,0,0,0,0],
+      [0,0,0,0,5,5,5,5,5,5,5,0,0,0,0,0],
+      [0,0,0,0,6,6,6,6,6,6,6,0,0,0,0,0],
+      [0,1,0,0,1,1,1,1,1,1,0,0,0,1,0,0],
+      [0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0],
+      [0,0,1,2,2,2,2,2,2,2,2,2,1,0,0,0],
+      [0,0,1,2,2,4,2,2,4,2,2,2,1,0,0,0],
+      [0,3,1,2,2,2,2,2,2,2,2,2,1,3,0,0],
+      [3,3,1,1,1,1,1,1,1,1,1,1,1,3,3,0],
+      [0,3,0,1,0,0,0,0,0,0,0,1,0,3,0,0],
+      [0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0],
+      [0,0,1,1,0,0,0,0,0,0,1,1,0,0,0,0],
+    ];
+
+    // Frame 1: antenna slight left
+    const F1 = [
+      [0,0,0,0,5,5,5,5,5,5,0,0,0,0,0,0],
+      [0,0,0,5,5,5,5,5,5,5,5,0,0,0,0,0],
+      [0,0,0,6,6,6,6,6,6,6,6,0,0,0,0,0],
+      [0,1,0,0,1,1,1,1,1,1,0,0,0,1,0,0],
+      [0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0],
+      [0,0,1,2,2,2,2,2,2,2,2,2,1,0,0,0],
+      [0,0,1,2,2,4,2,2,4,2,2,2,1,0,0,0],
+      [0,3,1,2,2,2,2,2,2,2,2,2,1,3,0,0],
+      [3,3,1,1,1,1,1,1,1,1,1,1,1,3,3,0],
+      [0,3,0,1,0,0,0,0,0,0,0,1,0,3,0,0],
+      [0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0],
+      [0,0,1,1,0,0,0,0,0,0,1,1,0,0,0,0],
+    ];
+
+    // Frame 2: claw raised slightly
+    const F2 = [
+      [0,0,0,0,0,5,5,5,5,5,0,0,0,0,0,0],
+      [0,0,0,0,5,5,5,5,5,5,5,0,0,0,0,0],
+      [0,0,0,0,6,6,6,6,6,6,6,0,0,0,0,0],
+      [0,1,0,0,1,1,1,1,1,1,0,0,0,1,0,0],
+      [0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0],
+      [0,0,1,2,2,2,2,2,2,2,2,2,1,0,0,0],
+      [0,0,1,2,2,4,2,2,4,2,2,2,1,0,0,0],
+      [3,3,1,2,2,2,2,2,2,2,2,2,1,3,0,0],
+      [0,3,1,1,1,1,1,1,1,1,1,1,1,3,3,0],
+      [0,0,0,1,0,0,0,0,0,0,0,1,0,3,0,0],
+      [0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0],
+      [0,0,1,1,0,0,0,0,0,0,1,1,0,0,0,0],
+    ];
+
+    // Frame 3: antenna right
+    const F3 = [
+      [0,0,0,0,0,0,5,5,5,5,5,0,0,0,0,0],
+      [0,0,0,0,0,5,5,5,5,5,5,5,0,0,0,0],
+      [0,0,0,0,0,6,6,6,6,6,6,6,0,0,0,0],
+      [0,1,0,0,1,1,1,1,1,1,0,0,0,1,0,0],
+      [0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0],
+      [0,0,1,2,2,2,2,2,2,2,2,2,1,0,0,0],
+      [0,0,1,2,2,4,2,2,4,2,2,2,1,0,0,0],
+      [0,3,1,2,2,2,2,2,2,2,2,2,1,3,0,0],
+      [3,3,1,1,1,1,1,1,1,1,1,1,1,3,3,0],
+      [0,3,0,1,0,0,0,0,0,0,0,1,0,3,0,0],
+      [0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0],
+      [0,0,1,1,0,0,0,0,0,0,1,1,0,0,0,0],
+    ];
+
+    const FRAMES = [F0, F1, F2, F3];
+
+    // Draw a sprite frame at pixel position (px, py) with scale s
+    function drawSprite(frame, px, py, s) {
+      s = s || 1;
+      for (let row = 0; row < frame.length; row++) {
+        for (let col = 0; col < frame[row].length; col++) {
+          const ci = frame[row][col];
+          if (!ci) continue;
+          g.fillStyle = CI[ci];
+          g.fillRect(
+            Math.floor(px + col * s),
+            Math.floor(py + row * s),
+            s, s
+          );
+        }
+      }
+    }
+
+    // ────────────────────────────────────────────
+    //  Scene objects
+    // ────────────────────────────────────────────
+
+    // Cloud (simple rect cluster)
+    const clouds = [
+      { x: 20, y: 18, w: 28, speed: 0.12 },
+      { x: 110, y: 10, w: 36, speed: 0.08 },
+      { x: 160, y: 22, w: 22, speed: 0.15 },
+    ];
+
+    // Wave lines
+    const waves = [];
+    for (let i = 0; i < 8; i++) {
+      waves.push({ x: i * 28 - 10, y: 90 + Math.random() * 6, spd: 0.3 + Math.random() * 0.2 });
+    }
+
+    // Crab state
+    const crab = {
+      x: W / 2 - 8,
+      y: 82,
+      bobOffset: 0,
+      driftX: 0,
+      frame: 0,
+      frameTick: 0,
+      frameRate: 10, // frames per anim frame at 24fps
+    };
+
+    // ────────────────────────────────────────────
+    //  Draw helpers
+    // ────────────────────────────────────────────
+
+    function drawCloud(cx, cy, cw) {
+      g.fillStyle = P.cloud;
+      // puffed cloud from 3 overlapping rects
+      g.fillRect(Math.floor(cx),        Math.floor(cy + 4), Math.floor(cw),     4);
+      g.fillRect(Math.floor(cx + 4),    Math.floor(cy + 2), Math.floor(cw - 8), 4);
+      g.fillRect(Math.floor(cx + 8),    Math.floor(cy),     Math.floor(cw - 16),4);
+    }
+
+    function drawWave(wx, wy) {
+      g.fillStyle = P.water3;
+      // wavy line: 3 dots
+      for (let i = 0; i < 5; i++) {
+        const xx = Math.floor(wx + i * 4);
+        const yy = Math.floor(wy + (i % 2 === 0 ? 0 : 1));
+        g.fillRect(xx, yy, 2, 1);
+      }
+    }
+
+    // ────────────────────────────────────────────
+    //  Main loop
+    // ────────────────────────────────────────────
+    let last = 0;
+    let tick = 0;
+
+    function loop(ts) {
+      const dt = Math.min((ts - last) / (1000 / 24), 3); // delta in 24fps ticks
+      last = ts;
+      tick += dt;
+
+      // ── Update ──
+
+      // Clouds drift left
+      for (const c of clouds) {
+        c.x -= c.speed * dt;
+        if (c.x + c.w < 0) c.x = W + 10;
+      }
+
+      // Waves drift left
+      for (const w of waves) {
+        w.x -= w.spd * dt;
+        if (w.x < -20) w.x = W + 10;
+      }
+
+      // Crab bobbing
+      crab.bobOffset = Math.sin(tick * 0.15) * 2;
+      crab.driftX = Math.sin(tick * 0.07) * 1.2;
+
+      // Crab animation frame
+      crab.frameTick += dt;
+      if (crab.frameTick >= crab.frameRate) {
+        crab.frameTick = 0;
+        crab.frame = (crab.frame + 1) % FRAMES.length;
+      }
+
+      // ── Draw ──
+      g.clearRect(0, 0, W, H);
+
+      // Sky gradient (manual 3-row bands)
+      g.fillStyle = P.sky1;
+      g.fillRect(0, 0, W, 45);
+      g.fillStyle = P.sky2;
+      g.fillRect(0, 45, W, 30);
+
+      // Sun
+      g.fillStyle = P.sun;
+      g.fillRect(W - 26, 8, 12, 12);
+      g.fillRect(W - 24, 6, 8, 16);  // cross
+      g.fillRect(W - 28, 10, 16, 8);
+
+      // Clouds
+      for (const c of clouds) drawCloud(c.x, c.y, c.w);
+
+      // Water background
+      g.fillStyle = P.water1;
+      g.fillRect(0, 72, W, H - 72);
+
+      // Water mid band
+      g.fillStyle = P.water2;
+      g.fillRect(0, 76, W, 12);
+
+      // Foam line at water surface
+      g.fillStyle = P.foam;
+      for (let fx = 0; fx < W; fx += 6) {
+        g.fillRect(fx, 74, 3, 1);
+      }
+
+      // Waves
+      for (const w of waves) drawWave(w.x, w.y);
+
+      // Crab (drawn on water surface, bobbing)
+      const cx = Math.floor(crab.x + crab.driftX);
+      const cy = Math.floor(crab.y + crab.bobOffset);
+      drawSprite(FRAMES[crab.frame], cx, cy, 1);
+
+      // Blit to main canvas at 2×
+      ctx.clearRect(0, 0, 400, 300);
+      ctx.drawImage(buf, 0, 0, 400, 300);
+
+      requestAnimationFrame(loop);
+    }
+
+    requestAnimationFrame(ts => { last = ts; requestAnimationFrame(loop); });
+  </script>
+</body>
+</html>

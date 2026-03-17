@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Clawd · 河边冰淇淋</title>
+  <style>
+    body { background: #0e0810; display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; margin:0; }
+    canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
+    p { color: #2a1a30; font-size:11px; font-family:monospace; margin-top:8px; letter-spacing:3px; }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="400" height="300"></canvas>
+  <p>CLAWD · 河边冰淇淋</p>
+<script>
+'use strict';
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;
+const W=200,H=150;
+const buf=document.createElement('canvas');buf.width=W;buf.height=H;
+const g=buf.getContext('2d');g.imageSmoothingEnabled=false;
+
+const S=3,FOOT_Y=119;
+const CX=Math.floor(80-7.5*S),CY=FOOT_Y-15*S;
+const gx=x=>CX+x*S,gy=y=>CY+y*S;
+const C={body:'#DE886D',eye:'#000000',shadow:'rgba(0,0,0,0.4)'};
+function rect(x,y,w,h,c){g.fillStyle=c;g.fillRect(Math.floor(x),Math.floor(y),w,h);}
+
+const P={
+  sky0:'#1e0828',sky1:'#3a1050',sky2:'#6a2060',sky3:'#c04840',sky4:'#e07830',
+  cloud:'#902040',
+  river0:'#1a3060',river1:'#1e3870',river2:'#284888',ripple:'#3060a0',refl:'#4878b8',
+  grass0:'#0a2010',grass1:'#102818',grass2:'#183020',
+  tree:'#0e1c0a',tree2:'#162614',leaf0:'#1a3a10',leaf1:'#224818',
+  cone:'#e0a060',coneD:'#b07840',scoop1:'#f0d0e0',scoop2:'#e8b0c8',
+  firefly:'#d0f030',
+};
+
+let _s=71829;const rand=()=>{_s=(_s*1664525+1013904223)&0x7fffffff;return _s/0x7fffffff;};
+
+const STARS=Array.from({length:30},()=>({x:Math.floor(rand()*W),y:Math.floor(rand()*55),tw:rand()*Math.PI*2,sp:0.015+rand()*0.02}));
+
+// Fireflies
+const FLIES=Array.from({length:7},()=>({
+  x:110+rand()*80,y:50+rand()*50,vx:(rand()-.5)*6,vy:-4-rand()*8,
+  life:rand(),maxLife:(2+rand()*3)*60,phase:rand()*Math.PI*2,
+}));
+function resetFly(f){f.x=100+rand()*90;f.y=70+rand()*35;f.vx=(rand()-.5)*7;f.vy=-3-rand()*9;f.life=0;f.maxLife=(2+rand()*3.5)*60;f.phase=rand()*Math.PI*2;}
+
+let bT=0,blinkT=600,nextBlink=180,eyeDx=0,lookDx=0,nextLook=240;
+function drawClawd(dt){
+  bT+=0.03*dt;blinkT+=dt;nextBlink-=dt;
+  if(nextBlink<0){nextBlink=(2+Math.random()*3.5)*60;blinkT=0;}
+  nextLook-=dt;
+  if(nextLook<0){nextLook=(1.8+Math.random()*3)*60;lookDx=(Math.random()-.5)*4;}
+  eyeDx+=(lookDx-eyeDx)*0.04*dt;
+  const breathe=1+Math.sin(bT)*0.014;
+  rect(gx(2),gy(15.3),11*S,2,C.shadow);
+  rect(gx(3),gy(13),S,S*2,C.body);rect(gx(5),gy(13),S,S*2,C.body);
+  rect(gx(9),gy(13),S,S*2,C.body);rect(gx(11),gy(13),S,S*2,C.body);
+  const tH=Math.round(7*S*breathe),tY=Math.floor(gy(6))+(7*S-tH);
+  rect(gx(2),tY,11*S,tH,C.body);
+  g.save();g.translate(Math.floor(gx(1)),Math.floor(gy(10)));rect(-S,-S,S*2,S*2,C.body);g.restore();
+  // Right arm raised (holding ice cream)
+  g.save();g.translate(Math.floor(gx(14)),Math.floor(gy(8)));g.rotate(-0.7);rect(-S,-S,S*2,S*2,C.body);g.restore();
+  const blinkSc=blinkT<0.07*60?0.05:1,eyeH=Math.max(1,Math.round(S*2*blinkSc));
+  const edx=Math.floor(eyeDx),ey=Math.floor(gy(8))+(S*2-eyeH);
+  rect(gx(4)+edx,ey,S,eyeH,C.eye);rect(gx(10)+edx,ey,S,eyeH,C.eye);
+  // Tongue — lick every ~5s for 0.3s
+  const lickCycle=(t%5);
+  if(lickCycle<0.3) rect(gx(7),Math.floor(gy(10))+1,3,3,'#e86090');
+  // Ice cream cone (near raised arm)
+  const icx=gx(16),icy=gy(5);
+  // Scoop height shrinks (melting) then pops back
+  const meltPhase=(t*0.12)%1, meltH=Math.floor(4+Math.sin(meltPhase*Math.PI)*2);
+  rect(icx-1,icy+8,7,10,P.cone);    // cone
+  rect(icx,icy+10,5,1,P.coneD);rect(icx+1,icy+13,3,1,P.coneD);
+  rect(icx-2,icy+3,9,7,P.scoop1);   // scoop bottom
+  rect(icx-1,icy,8,meltH+1,P.scoop2); // shrinking top scoop
+  rect(icx,icy-2,6,Math.max(1,meltH-1),P.scoop1);
+  // Animated drip: drops fall from cone bottom and fade
+  const dripY=icy+10+((t*40)%14);
+  g.globalAlpha=1-((t*40)%14)/14;
+  rect(icx+3,Math.floor(dripY),2,2,P.scoop2);
+  g.globalAlpha=1;
+}
+
+function drawScene(t,dt){
+  // Dusk sky gradient
+  rect(0,0,W,20,P.sky0);rect(0,20,W,20,P.sky1);rect(0,40,W,20,P.sky2);
+  rect(0,60,W,20,P.sky3);rect(0,80,W,12,P.sky4);
+
+  // Stars (dim)
+  for(const s of STARS){
+    s.tw+=s.sp;
+    g.globalAlpha=0.2+0.5*Math.abs(Math.sin(s.tw));
+    rect(s.x,s.y,1,1,'#f0d0e0');
+  }
+  g.globalAlpha=1;
+
+  // Dusk clouds
+  g.globalAlpha=0.35;
+  rect(10,22,40,8,P.cloud);rect(18,18,24,6,P.cloud);
+  rect(130,30,50,7,P.cloud);rect(140,26,30,6,P.cloud);
+  g.globalAlpha=1;
+
+  // River (mid-ground)
+  const ry=91;
+  rect(0,ry,W,H-ry,P.river0);
+  rect(0,ry,W,6,P.river1);
+  // Ripples
+  for(let rx=0;rx<W;rx+=12){
+    const rwave=Math.sin(rx*0.12+t*1.5)*2;
+    rect(rx,ry+2+rwave,8,2,P.ripple);
+  }
+  // Dusk reflection on water
+  g.globalAlpha=0.25;
+  for(let rx=0;rx<W;rx+=3){
+    const rh=4+Math.sin(rx*0.15+t*0.8)*2;
+    rect(rx,ry+8,2,rh,P.sky3);
+  }
+  g.globalAlpha=1;
+
+  // Grass bank
+  rect(0,FOOT_Y+1,W,ry-FOOT_Y-1,P.grass0);
+  for(let gx2=0;gx2<W;gx2+=5){
+    const gh=1+Math.floor(Math.sin(gx2*0.7+t*0.3)+1);
+    rect(gx2,FOOT_Y+1,4,gh,P.grass1);
+  }
+  rect(0,FOOT_Y+3,W,8,P.grass1);rect(0,FOOT_Y+9,W,6,P.grass2);
+
+  // Tree (right side)
+  rect(145,45,8,55,P.tree);rect(146,45,5,53,P.tree2);
+  [48,51,54,57,60,63,66,70,74,78,82,86].forEach((ly,i)=>{
+    const lw=22-Math.abs(i-5)*2;
+    rect(149-lw/2,ly,lw,3,i<5?P.leaf0:P.leaf1);
+  });
+
+  // Fireflies
+  for(const f of FLIES){
+    f.life+=dt;if(f.life>=f.maxLife){resetFly(f);continue;}
+    f.x+=f.vx*(dt/60);f.y+=f.vy*(dt/60);
+    const alpha=Math.sin((f.life/f.maxLife)*Math.PI)*(0.4+0.6*Math.abs(Math.sin(t*8+f.phase)));
+    if(alpha>0.1){
+      g.globalAlpha=alpha*0.3;rect(Math.floor(f.x)-1,Math.floor(f.y)-1,3,3,P.firefly);
+      g.globalAlpha=alpha;rect(Math.floor(f.x),Math.floor(f.y),1,1,P.firefly);
+      g.globalAlpha=1;
+    }
+  }
+}
+
+let lastTs=0,t=0;
+function loop(ts){
+  const dt=Math.min((ts-lastTs)/(1000/60),3);lastTs=ts;t+=dt/60;
+  drawScene(t,dt);
+  drawClawd(dt);
+  ctx.drawImage(buf,0,0,W,H,0,0,400,300);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(ts=>{lastTs=ts;requestAnimationFrame(loop);});
+</script>
+</body>
+</html>

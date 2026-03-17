@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Clawd · 宇宙</title>
+  <style>
+    body { background: #000008; display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; margin:0; }
+    canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
+    p { color: #1a1a3a; font-size:11px; font-family:monospace; margin-top:8px; letter-spacing:3px; }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="400" height="300"></canvas>
+  <p>CLAWD · 宇宙</p>
+<script>
+'use strict';
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d'); ctx.imageSmoothingEnabled = false;
+const W=200, H=150;
+const buf=document.createElement('canvas'); buf.width=W; buf.height=H;
+const g=buf.getContext('2d'); g.imageSmoothingEnabled=false;
+
+// Clawd floats freely — no ground, centered vertically
+const S=3;
+const BASE_Y=85;  // Clawd vertical anchor (mid-canvas)
+const CX=Math.floor(100-7.5*S), CY=BASE_Y-15*S;
+const gx=x=>CX+x*S, gy=y=>CY+y*S;
+const C={body:'#DE886D',eye:'#000000',shadow:'rgba(80,80,160,0.3)'};
+function rect(x,y,w,h,c){ g.fillStyle=c; g.fillRect(Math.floor(x),Math.floor(y),w,h); }
+
+const P={
+  bg:'#02020e', nebula1:'#1a0a2e', nebula2:'#0a1a2e', nebula3:'#1a0820',
+  star:'#f0f0ff', starB:'#80c0ff', starY:'#ffe080', starP:'#ffb0d0',
+  planet:'#c08040', planetS:'#a06830', planetR:'#e0c080',
+  ring:'#c0a060', ring2:'#9a8040',
+  shoot:'#e0f0ff',
+};
+
+let _s=98732; const rand=()=>{ _s=(_s*1664525+1013904223)&0x7fffffff; return _s/0x7fffffff; };
+
+// Stars (more than usual, colorful)
+const STARCOLORS=[P.star,P.star,P.starB,P.starY,P.starP];
+const STARS=Array.from({length:80},()=>({
+  x:Math.floor(rand()*W), y:Math.floor(rand()*H),
+  big:rand()<0.12, tw:rand()*Math.PI*2, sp:0.01+rand()*0.02,
+  c:STARCOLORS[Math.floor(rand()*STARCOLORS.length)],
+}));
+
+// Shooting star
+let shoot={x:-10,y:0,active:false,timer:0,nextTime:180+rand()*300};
+
+let bT=0,blinkT=600,nextBlink=180,eyeDx=4,lookDx=4,nextLook=240; // biased right — peering through telescope
+function drawClawd(dt, floatDy){
+  bT+=0.03*dt; blinkT+=dt; nextBlink-=dt;
+  if(nextBlink<0){nextBlink=(2+Math.random()*3.5)*60;blinkT=0;}
+  nextLook-=dt;
+  if(nextLook<0){nextLook=(1.8+Math.random()*3)*60;lookDx=(Math.random()-.5)*4;}
+  eyeDx+=(lookDx-eyeDx)*0.04*dt;
+  const breathe=1+Math.sin(bT)*0.014;
+  const fd=Math.floor(floatDy);
+  // No ground shadow in space — faint nebula tint
+  g.globalAlpha=0.2;
+  rect(gx(2),gy(15.3)+fd,11*S,2,C.shadow);
+  g.globalAlpha=1;
+  rect(gx(3),gy(13)+fd,S,S*2,C.body);rect(gx(5),gy(13)+fd,S,S*2,C.body);
+  rect(gx(9),gy(13)+fd,S,S*2,C.body);rect(gx(11),gy(13)+fd,S,S*2,C.body);
+  const tH=Math.round(7*S*breathe),tY=Math.floor(gy(6)+fd)+(7*S-tH);
+  rect(gx(2),tY,11*S,tH,C.body);
+  // Left arm drifts free in zero-g
+  const armDrift=Math.sin(bT*0.5)*4;
+  g.save();g.translate(Math.floor(gx(1)),Math.floor(gy(10)+fd-armDrift));rect(-S,-S,S*2,S*2,C.body);g.restore();
+  // Right arm raised to eye level — holding telescope pointing toward planet (upper right)
+  g.save();g.translate(Math.floor(gx(13)),Math.floor(gy(8)+fd));g.rotate(0.6);
+  rect(-S,-S,S*2,S*2,C.body);
+  // Telescope — compact, proportional to Clawd's body
+  rect(-1,-10,3,10,'#607080');   // barrel
+  rect(-2,-13,5,3,'#708090');    // objective bell
+  rect(-1,-14,3,2,'#b0d0e0');    // objective lens glass
+  rect( 0, -6,1,2,'#90b0c0');    // barrel ring
+  rect(-2,  0,4,3,'#506070');    // eyepiece housing
+  g.restore();
+  const blinkSc=blinkT<0.07*60?0.05:1,eyeH=Math.max(1,Math.round(S*2*blinkSc));
+  const edx=Math.floor(eyeDx),ey=Math.floor(gy(8)+fd)+(S*2-eyeH);
+  rect(gx(4)+edx,ey,S,eyeH,C.eye);rect(gx(10)+edx,ey,S,eyeH,C.eye);
+}
+
+function drawScene(t,dt){
+  rect(0,0,W,H,P.bg);
+
+  // Nebula blobs (soft color patches)
+  g.globalAlpha=0.12;
+  rect(20,10,60,50,P.nebula1); rect(30,15,40,30,P.nebula1);
+  rect(120,60,70,55,P.nebula2); rect(130,70,50,35,P.nebula2);
+  rect(0,90,50,50,P.nebula3);
+  g.globalAlpha=1;
+
+  // Stars
+  for(const s of STARS){
+    s.tw+=s.sp;
+    g.globalAlpha=0.4+0.6*Math.abs(Math.sin(s.tw));
+    rect(s.x,s.y,s.big?2:1,s.big?2:1,s.c);
+  }
+  g.globalAlpha=1;
+
+  // Planet (upper right, Saturn-style)
+  rect(148,10,30,22,P.planet);
+  // Planet shading
+  rect(148,10,30,5,P.planetS);
+  rect(150,14,26,4,P.planetR);
+  rect(152,23,22,4,P.planetS);
+  // Ring
+  g.globalAlpha=0.7;
+  rect(140,18,48,3,P.ring); rect(142,21,44,2,P.ring2);
+  // ring behind planet (clip illusion)
+  rect(148,18,30,5,P.planet);
+  g.globalAlpha=1;
+
+  // Shooting star
+  shoot.timer+=dt;
+  if(!shoot.active && shoot.timer>shoot.nextTime){
+    shoot.active=true; shoot.x=0; shoot.y=5+rand()*40; shoot.timer=0;
+  }
+  if(shoot.active){
+    shoot.x+=4*(dt/60)*60; shoot.y+=1.2*(dt/60)*60;
+    if(shoot.x>W+20) shoot.active=false, shoot.nextTime=180+rand()*360;
+    for(let i=0;i<6;i++){
+      g.globalAlpha=(6-i)/8;
+      rect(Math.floor(shoot.x)-i*3,Math.floor(shoot.y)-i,2,1,P.shoot);
+    }
+    g.globalAlpha=1;
+  }
+}
+
+let lastTs=0,t=0;
+function loop(ts){
+  const dt=Math.min((ts-lastTs)/(1000/60),3);lastTs=ts;t+=dt/60;
+  drawScene(t,dt);
+  const floatDy=Math.sin(t*0.42)*9;
+  drawClawd(dt,floatDy);
+  ctx.drawImage(buf,0,0,W,H,0,0,400,300);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(ts=>{lastTs=ts;requestAnimationFrame(loop);});
+</script>
+</body>
+</html>

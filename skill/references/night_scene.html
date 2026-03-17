@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>MMGUO AND CLAWD · 夜树</title>
+  <style>
+    body {
+      background: #07090f;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
+    p { color: #2a3a4a; font-size: 11px; font-family: monospace; margin-top: 8px; letter-spacing: 3px; }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="400" height="300"></canvas>
+  <p>MMGUO AND CLAWD · vibe animation</p>
+
+<script>
+'use strict';
+
+// ─── Canvas 2× pixel setup ────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+
+const W = 200, H = 150;
+const buf = document.createElement('canvas');
+buf.width = W; buf.height = H;
+const g = buf.getContext('2d');
+g.imageSmoothingEnabled = false;
+
+// ─── Grid (same as live_demo — S=3, 15×16 grid, center at x=90) ──────
+const S = 3;
+const FOOT_Y = 119;
+const CX = Math.floor(90 - 7.5 * S);   // 67 — left edge of grid
+const CY = FOOT_Y - 15 * S;             // 74 — top edge
+const gx = x => CX + x * S;
+const gy = y => CY + y * S;
+
+// ─── Palette ──────────────────────────────────────────────────────────
+// Night scene
+const P = {
+  sky0:  '#07090f', sky1: '#0c1220', sky2: '#101828',
+  trunk: '#2a1a0a', trunk2: '#3d2812',
+  lf0:   '#09200f', lf1: '#133d1e', lf2: '#1e5c2a',
+  lf3:   '#2d7a3a', lf4: '#40a050',
+  gnd0:  '#060e08', gnd1: '#0a1a0d', gnd2: '#0f2414',
+  star:  '#e8f0f8', star2: '#a0b8c8',
+  fly:   '#c8d820', fly2:  '#e0f040',
+};
+
+// Clawd (same as live_demo)
+const C = {
+  body:   '#DE886D',
+  eye:    '#000000',
+  shadow: 'rgba(0,0,0,0.45)',
+};
+
+// ─── Pixel helper (same name as live_demo) ───────────────────────────
+function rect(x, y, w, h, c) {
+  g.fillStyle = c;
+  g.fillRect(Math.floor(x), Math.floor(y), w, h);
+}
+
+// ─── Fixed-seed RNG ───────────────────────────────────────────────────
+let _seed = 77331;
+const rand = () => { _seed = (_seed * 1664525 + 1013904223) & 0x7fffffff; return _seed / 0x7fffffff; };
+
+// ─── Stars ────────────────────────────────────────────────────────────
+const STARS = Array.from({ length: 55 }, () => ({
+  x: Math.floor(rand() * W),
+  y: Math.floor(rand() * 85),
+  big: rand() < 0.18,
+  tw: rand() * Math.PI * 2,
+  sp: 0.018 + rand() * 0.025,
+}));
+
+// ─── Fireflies ────────────────────────────────────────────────────────
+const FLIES = Array.from({ length: 9 }, () => ({
+  x: 72 + rand() * 58,
+  y: 60 + rand() * 45,
+  vx: (rand() - 0.5) * 6,
+  vy: -6 - rand() * 10,
+  life: rand(),
+  maxLife: (2.2 + rand() * 2.5) * 60,  // in frames
+  phase: rand() * Math.PI * 2,
+}));
+
+function resetFly(f) {
+  f.x = 74 + rand() * 54;
+  f.y = 80 + rand() * 28;
+  f.vx = (rand() - 0.5) * 8;
+  f.vy = -5 - rand() * 12;
+  f.life = 0;
+  f.maxLife = (2.0 + rand() * 2.8) * 60;
+  f.phase = rand() * Math.PI * 2;
+}
+
+// ─── Tree ─────────────────────────────────────────────────────────────
+const CANOPY = [
+  [38, 5,  P.lf4], [41, 8,  P.lf4], [44, 12, P.lf3], [47, 16, P.lf3],
+  [50, 20, P.lf2], [53, 23, P.lf2], [56, 25, P.lf1], [59, 26, P.lf1],
+  [62, 26, P.lf0], [65, 25, P.lf0], [68, 24, P.lf0], [71, 21, P.lf1],
+  [74, 17, P.lf1], [77, 13, P.lf2], [80, 9,  P.lf2], [83, 6,  P.lf1],
+  [86, 3,  P.lf0],
+];
+const HIGHLIGHTS = [
+  [13, 50, 4, 3, P.lf3], [-16, 54, 3, 3, P.lf3],
+  [19, 59, 3, 4, P.lf4], [-18, 64, 4, 3, P.lf3],
+  [14, 71, 3, 3, P.lf3], [-12, 76, 3, 3, P.lf4],
+  [ 4, 44, 3, 2, P.lf4], [ -6, 42, 2, 2, P.lf4],
+];
+
+function drawTree(sw) {
+  const cx = 104 + sw;  // tree center slightly right of canvas center → Clawd has room
+  rect(cx - 4, 89, 8, 30, P.trunk);
+  rect(cx - 2, 89, 4, 28, P.trunk2);
+  rect(cx - 7, 112, 4, 7, P.trunk);
+  rect(cx + 4, 113, 3, 6, P.trunk);
+  for (const [y, hw, c] of CANOPY) rect(cx - hw, y, hw * 2, 3, c);
+  for (const [dx, y, w, h, c] of HIGHLIGHTS) rect(cx + dx, y, w, h, c);
+}
+
+// ─── Clawd idle — same drawing logic as live_demo ────────────────────
+let bT = 0;
+let blinkT = 600, nextBlink = 180;    // in frames
+let eyeDx = 0, lookDx = 0, nextLook = 240;
+
+function drawClawd(dt) {
+  // Update idle anim state (frame-based, matching live_demo rhythm)
+  bT += 0.03 * dt;
+
+  blinkT += dt;
+  nextBlink -= dt;
+  if (nextBlink < 0) { nextBlink = (2 + Math.random() * 3.5) * 60; blinkT = 0; }
+
+  nextLook -= dt;
+  if (nextLook < 0) { nextLook = (1.8 + Math.random() * 3) * 60; lookDx = (Math.random() - 0.5) * 4; }
+  eyeDx += (lookDx - eyeDx) * 0.04 * dt;
+
+  const breathe = 1 + Math.sin(bT) * 0.014;
+
+  // Shadow
+  rect(gx(2), gy(15.3), 11 * S, 2, C.shadow);
+
+  // Legs (4 visible, idle = static)
+  rect(gx(3),  gy(13), S, S * 2, C.body);
+  rect(gx(5),  gy(13), S, S * 2, C.body);
+  rect(gx(9),  gy(13), S, S * 2, C.body);
+  rect(gx(11), gy(13), S, S * 2, C.body);
+
+  // Torso with breathing scale
+  const tH = Math.round(7 * S * breathe);
+  const tY = Math.floor(gy(6)) + (7 * S - tH);
+  rect(gx(2), tY, 11 * S, tH, C.body);
+
+  // Arms (idle: aL=0, aR=0 — both hang straight down)
+  g.save();
+  g.translate(Math.floor(gx(1)), Math.floor(gy(10)));
+  rect(-S, -S, S * 2, S * 2, C.body);
+  g.restore();
+
+  g.save();
+  g.translate(Math.floor(gx(14)), Math.floor(gy(10)));
+  rect(-S, -S, S * 2, S * 2, C.body);
+  g.restore();
+
+  // Eyes (with blink)
+  const blinkSc = (blinkT < 0.07 * 60) ? 0.05 : 1;
+  const eyeH = Math.max(1, Math.round(S * 2 * blinkSc));
+  const edx = Math.floor(eyeDx);
+  const ey = Math.floor(gy(8)) + (S * 2 - eyeH);
+  rect(gx(4) + edx, ey, S, eyeH, C.eye);
+  rect(gx(10) + edx, ey, S, eyeH, C.eye);
+}
+
+// ─── Ground ───────────────────────────────────────────────────────────
+function drawGround(t) {
+  rect(0, FOOT_Y + 1, W, H - FOOT_Y - 1, P.gnd0);
+  for (let gx2 = 0; gx2 < W; gx2 += 5) {
+    const h = 1 + Math.floor(Math.sin(gx2 * 0.55 + t * 0.35) + 1);
+    rect(gx2, FOOT_Y + 1, 4, h, P.gnd1);
+  }
+  rect(0, FOOT_Y + 4, W, 8,  P.gnd1);
+  rect(0, FOOT_Y + 10, W, 6, P.gnd2);
+  rect(0, FOOT_Y + 16, W, H - FOOT_Y - 16, P.gnd0);
+}
+
+// ─── Main loop ────────────────────────────────────────────────────────
+let lastTs = 0, t = 0;
+
+function loop(ts) {
+  const dt = Math.min((ts - lastTs) / (1000 / 60), 3);  // frame-based (like live_demo)
+  lastTs = ts;
+  t += dt / 60;  // t in seconds for sin()
+
+  const sway = Math.sin(t * 0.38) * 1.4;
+
+  // ── Sky (3-band gradient) ──
+  rect(0,  0, W, 45, P.sky0);
+  rect(0, 45, W, 42, P.sky1);
+  rect(0, 87, W, 32, P.sky2);
+
+  // ── Stars ──
+  for (const s of STARS) {
+    s.tw += s.sp;
+    const br = 0.3 + 0.7 * Math.abs(Math.sin(s.tw));
+    g.globalAlpha = br;
+    rect(s.x, s.y, s.big ? 2 : 1, s.big ? 2 : 1, s.big ? P.star : P.star2);
+  }
+  g.globalAlpha = 1;
+
+  // ── Ground ──
+  drawGround(t);
+
+  // ── Tree ──
+  drawTree(sway);
+
+  // ── Fireflies ──
+  for (const f of FLIES) {
+    f.life += dt;
+    if (f.life >= f.maxLife) { resetFly(f); continue; }
+    f.x += f.vx * (dt / 60);
+    f.y += f.vy * (dt / 60);
+    const alpha = Math.sin((f.life / f.maxLife) * Math.PI) * (0.5 + 0.5 * Math.sin(t * 9 + f.phase));
+    if (alpha > 0.15) {
+      g.globalAlpha = alpha * 0.35;
+      rect(Math.floor(f.x) - 1, Math.floor(f.y) - 1, 3, 3, P.fly2);
+      g.globalAlpha = alpha;
+      rect(Math.floor(f.x), Math.floor(f.y), 1, 1, P.fly2);
+      g.globalAlpha = 1;
+    }
+  }
+
+  // ── Clawd ──
+  drawClawd(dt);
+
+  // ── Upscale ──
+  ctx.drawImage(buf, 0, 0, W, H, 0, 0, 400, 300);
+  requestAnimationFrame(loop);
+}
+
+requestAnimationFrame(ts => { lastTs = ts; requestAnimationFrame(loop); });
+</script>
+</body>
+</html>

@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Clawd — Official Claude Code Mascot Reference</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0d0d0d;
+      color: #e0e0e0;
+      font-family: 'Courier New', Courier, monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+      min-height: 100vh;
+    }
+    h1 { color: #D77757; font-size: 18px; margin-bottom: 6px; letter-spacing: 2px; }
+    .subtitle { color: #556; font-size: 12px; margin-bottom: 40px; }
+
+    .section { margin-bottom: 40px; text-align: center; }
+    .section h2 { color: #778; font-size: 12px; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 16px; }
+
+    /* Terminal block — mimics the actual CLI look */
+    .terminal {
+      background: #000;
+      border-radius: 8px;
+      border: 1px solid #333;
+      overflow: hidden;
+      display: inline-block;
+      min-width: 320px;
+    }
+    .term-bar {
+      background: #222;
+      padding: 8px 12px;
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .dot-r { background: #ff5f57; }
+    .dot-y { background: #ffbd2e; }
+    .dot-g { background: #28c840; }
+    .term-body { padding: 16px 20px; }
+
+    /* Official Clawd using actual Unicode block chars + exact colors */
+    .clawd {
+      font-size: 24px;
+      line-height: 1.1;
+      display: inline-block;
+      font-family: 'Consolas', 'Menlo', monospace;
+    }
+    .cb { color: rgb(215,119,87); }              /* clawd_body */
+    .cbb { color: rgb(215,119,87); background: #000; } /* body+bg */
+    /* For showing the filled body, we flip: bg=clawd_body, fg=black */
+    .cfill { color: #000; background: rgb(215,119,87); }
+
+    .clawd-row { display: block; white-space: pre; }
+
+    /* Claude Code welcome banner */
+    .welcome { color: rgb(215,119,87); font-size: 13px; margin-bottom: 8px; }
+    .info { color: #557; font-size: 12px; }
+
+    /* Enlarged pixel render */
+    .big-clawd {
+      font-size: 48px;
+      line-height: 1.05;
+      display: inline-block;
+      font-family: 'Consolas', 'Menlo', 'Courier New', monospace;
+    }
+
+    /* Color swatches */
+    .swatches { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin-top: 24px; }
+    .swatch { text-align: center; }
+    .swatch-box { width: 60px; height: 40px; border-radius: 6px; margin: 0 auto 6px; border: 1px solid #333; }
+    .swatch-label { font-size: 11px; color: #556; }
+    .swatch-hex { font-size: 10px; color: #889; }
+
+    /* Grid reference */
+    .grid-ref {
+      font-family: 'Consolas', 'Menlo', monospace;
+      font-size: 11px;
+      color: #446;
+      margin-top: 20px;
+      text-align: left;
+      background: #111;
+      padding: 12px 16px;
+      border-radius: 6px;
+      border: 1px solid #222;
+      white-space: pre;
+      line-height: 1.5;
+    }
+
+    hr.sep { border: none; border-top: 1px solid #222; margin: 10px 0 30px; width: 100%; max-width: 600px; }
+  </style>
+</head>
+<body>
+
+  <h1>🦀 CLAWD</h1>
+  <p class="subtitle">Official Claude Code Mascot · Extracted from @anthropic-ai/claude-code v2.x</p>
+
+  <!-- 1. Terminal context (actual size) -->
+  <div class="section">
+    <h2>As seen in terminal (actual size)</h2>
+    <div class="terminal">
+      <div class="term-bar">
+        <div class="dot dot-r"></div>
+        <div class="dot dot-y"></div>
+        <div class="dot dot-g"></div>
+      </div>
+      <div class="term-body">
+        <div class="welcome">
+          <!-- Clawd (normal terminal version) + Claude Code label -->
+          <span style="display:inline-flex; gap:8px; align-items:flex-start;">
+            <span class="clawd">
+              <span class="clawd-row"><span class="cb"> ▐</span><span class="cbb">▛███▜</span><span class="cb">▌</span></span>
+              <span class="clawd-row"><span class="cb">▝▜</span><span class="cbb">█████</span><span class="cb">▛▘</span></span>
+              <span class="clawd-row"><span class="cb">  ▘▘ ▝▝  </span></span>
+            </span>
+            <span style="padding-left:4px; font-size:13px; color: rgb(215,119,87);">Claude Code <span style="color:#446">v2.x</span></span>
+          </span>
+        </div>
+        <div class="info" style="margin-top:8px;">↑ type "/" for commands</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Enlarged -->
+  <div class="section">
+    <h2>2× enlarged</h2>
+    <div style="background:#000; padding:20px 28px; border-radius:8px; border:1px solid #222; display:inline-block;">
+      <span class="big-clawd">
+        <span class="clawd-row"><span class="cb"> ▐</span><span class="cbb">▛███▜</span><span class="cb">▌</span></span>
+        <span class="clawd-row"><span class="cb">▝▜</span><span class="cbb">█████</span><span class="cb">▛▘</span></span>
+        <span class="clawd-row"><span class="cb">  ▘▘ ▝▝  </span></span>
+      </span>
+    </div>
+  </div>
+
+  <!-- 3. Apple Terminal variant -->
+  <div class="section">
+    <h2>Apple Terminal variant (rounder head)</h2>
+    <div style="background:#000; padding:20px 28px; border-radius:8px; border:1px solid #222; display:inline-block;">
+      <span class="big-clawd">
+        <span class="clawd-row"><span class="cb">▗</span><span class="cfill"> ▗   ▖ </span><span class="cb">▖</span></span>
+        <span class="clawd-row"><span class="cfill" style="display:inline-block;width:7ch;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></span>
+        <span class="clawd-row"><span class="cb">▘▘ ▝▝</span></span>
+      </span>
+    </div>
+  </div>
+
+  <hr class="sep">
+
+  <!-- 4. Color palette -->
+  <div class="section">
+    <h2>Official color palette</h2>
+    <div class="swatches">
+      <div class="swatch">
+        <div class="swatch-box" style="background:rgb(215,119,87);"></div>
+        <div class="swatch-label">clawd_body</div>
+        <div class="swatch-hex">rgb(215,119,87)</div>
+        <div class="swatch-hex">#D77757</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:#000; border-color:#444;"></div>
+        <div class="swatch-label">clawd_background</div>
+        <div class="swatch-hex">rgb(0,0,0)</div>
+        <div class="swatch-hex">#000000</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:#E86A33;"></div>
+        <div class="swatch-label">秒秒Guo 参考色</div>
+        <div class="swatch-hex">#E86A33</div>
+        <div class="swatch-hex">vibe animation</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Source reference -->
+  <div class="section">
+    <h2>Source code reference (from cli.js)</h2>
+    <div class="grid-ref">// Normal terminal — aF8() function
+Row 1: " ▐"[clawd_body]  + "▛███▜"[clawd_body on clawd_background]  + "▌"[clawd_body]
+Row 2: "▝▜"[clawd_body]  + "█████"[clawd_body on clawd_background]  + "▛▘"[clawd_body]
+Row 3: "  ▘▘ ▝▝  "[clawd_body]
+
+// Apple Terminal — eqz() function
+Row 1: "▗"[clawd_body]  + " ▗   ▖ "[clawd_background on clawd_body]  + "▖"[clawd_body]
+Row 2: "       "[bg:clawd_body, 7 spaces]
+Row 3: "▘▘ ▝▝"[clawd_body]
+
+// Color values (dark theme)
+clawd_body       = rgb(215, 119, 87)   // #D77757
+clawd_background = rgb(0, 0, 0)        // #000000
+
+// Source: node_modules/@anthropic-ai/claude-code/cli.js
+</div>
+  </div>
+
+  <p style="color:#334; font-size:10px; margin-top:20px;">Generated 2026-03-16 · vibe-pet project</p>
+
+</body>
+</html>

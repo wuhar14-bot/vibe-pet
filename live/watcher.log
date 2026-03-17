@@ -1,0 +1,113 @@
+[ws] listening on ws://localhost:3721
+[watcher] glob: C:/Users/harwu/.claude/projects/E--claude-code/**/*.jsonl
+[watcher] ready — open live_demo.html in browser
+[http] hook endpoint on http://localhost:3722/hook
+[registry] new session: test (main=true)
+[test] → thinking
+[hook] test tool_use:Read
+[test] → idle
+[registry] new session: 06334e39-a46e-4f75-b01a-eb22270c70b1 (main=true)
+[06334e39-a46e-4f75-b01a-eb22270c70b1] → happy
+[stop] 06334e39-a46e-4f75-b01a-eb22270c70b1 happy → ready
+[06334e39-a46e-4f75-b01a-eb22270c70b1] → notification
+[ws] client connected
+[registry] new session: 563dca82-cfbb-4486-a2de-05077b3f73cf (main=true)
+[563dca82-cfbb-4486-a2de-05077b3f73cf] → typing
+[hook] 563dca82-cfbb-4486-a2de-05077b3f73cf tool_use:Bash
+[563dca82-cfbb-4486-a2de-05077b3f73cf] → idle
+[563dca82-cfbb-4486-a2de-05077b3f73cf] → typing
+[hook] 563dca82-cfbb-4486-a2de-05077b3f73cf tool_use:Edit
+[563dca82-cfbb-4486-a2de-05077b3f73cf] → idle
+[563dca82-cfbb-4486-a2de-05077b3f73cf] → typing
+[hook] 563dca82-cfbb-4486-a2de-05077b3f73cf tool_use:Bash
+[563dca82-cfbb-4486-a2de-05077b3f73cf] → idle
+[test] → sleeping
+[563dca82-cfbb-4486-a2de-05077b3f73cf] → typing
+[hook] 563dca82-cfbb-4486-a2de-05077b3f73cf tool_use:Bash
+[563dca82-cfbb-4486-a2de-05077b3f73cf] → idle
+[563dca82-cfbb-4486-a2de-05077b3f73cf] → typing
+[hook] 563dca82-cfbb-4486-a2de-05077b3f73cf tool_use:Bash
+[563dca82-cfbb-4486-a2de-05077b3f73cf] → idle
+[ws] client connected
+[ws] client connected
+[06334e39-a46e-4f75-b01a-eb22270c70b1] → ending
+[stop] 06334e39-a46e-4f75-b01a-eb22270c70b1 signed off (bye)
+[stop] 06334e39-a46e-4f75-b01a-eb22270c70b1 signed off (bye)
+[registry] new session: 8096960d-7555-42d4-9dc5-0631bfb13a03 (main=true)
+[8096960d-7555-42d4-9dc5-0631bfb13a03] → happy
+[stop] 8096960d-7555-42d4-9dc5-0631bfb13a03 happy → ready
+[8096960d-7555-42d4-9dc5-0631bfb13a03] → notification
+[563dca82-cfbb-4486-a2de-05077b3f73cf] → sleeping
+[563dca82-cfbb-4486-a2de-05077b3f73cf] → happy
+[stop] 563dca82-cfbb-4486-a2de-05077b3f73cf happy → ready
+[563dca82-cfbb-4486-a2de-05077b3f73cf] → notification
+[test] → disconnected
+[563dca82-cfbb-4486-a2de-05077b3f73cf] → happy
+[stop] 563dca82-cfbb-4486-a2de-05077b3f73cf happy → ready
+[563dca82-cfbb-4486-a2de-05077b3f73cf] → notification
+[8096960d-7555-42d4-9dc5-0631bfb13a03] → thinking
+[hook] 8096960d-7555-42d4-9dc5-0631bfb13a03 tool_use:Read
+[8096960d-7555-42d4-9dc5-0631bfb13a03] → typing
+[hook] 8096960d-7555-42d4-9dc5-0631bfb13a03 tool_use:Bash
+[8096960d-7555-42d4-9dc5-0631bfb13a03] → idle
+[8096960d-7555-42d4-9dc5-0631bfb13a03] → sleeping
+[8096960d-7555-42d4-9dc5-0631bfb13a03] → typing
+[hook] 8096960d-7555-42d4-9dc5-0631bfb13a03 tool_use:Bash
+[hook] 8096960d-7555-42d4-9dc5-0631bfb13a03 tool_use:Bash
+[8096960d-7555-42d4-9dc5-0631bfb13a03] → idle
+[registry] stop grace expired: 06334e39-a46e-4f75-b01a-eb22270c70b1
+[8096960d-7555-42d4-9dc5-0631bfb13a03] → sleeping
+[registry] new session: 9fbef9f1-9a47-40fb-9912-d625a0f9c27e (main=true)
+[9fbef9f1-9a47-40fb-9912-d625a0f9c27e] → happy
+[stop] 9fbef9f1-9a47-40fb-9912-d625a0f9c27e happy → ready
+[9fbef9f1-9a47-40fb-9912-d625a0f9c27e] → notification
+[registry] stop grace expired: 563dca82-cfbb-4486-a2de-05077b3f73cf
+[8096960d-7555-42d4-9dc5-0631bfb13a03] → disconnected
+[registry] new session: a6d6ceec-eac2-49e0-ad23-c765753c923e (main=true)
+[a6d6ceec-eac2-49e0-ad23-c765753c923e] → happy
+[stop] a6d6ceec-eac2-49e0-ad23-c765753c923e happy → ready
+[a6d6ceec-eac2-49e0-ad23-c765753c923e] → notification
+[a6d6ceec-eac2-49e0-ad23-c765753c923e] → happy
+[stop] a6d6ceec-eac2-49e0-ad23-c765753c923e happy → ready
+[a6d6ceec-eac2-49e0-ad23-c765753c923e] → notification
+[9fbef9f1-9a47-40fb-9912-d625a0f9c27e] → happy
+[stop] 9fbef9f1-9a47-40fb-9912-d625a0f9c27e happy → ready
+[9fbef9f1-9a47-40fb-9912-d625a0f9c27e] → notification
+[a6d6ceec-eac2-49e0-ad23-c765753c923e] → typing
+[hook] a6d6ceec-eac2-49e0-ad23-c765753c923e tool_use:Bash
+[a6d6ceec-eac2-49e0-ad23-c765753c923e] → thinking
+[hook] a6d6ceec-eac2-49e0-ad23-c765753c923e tool_use:Read
+[a6d6ceec-eac2-49e0-ad23-c765753c923e] → idle
+[a6d6ceec-eac2-49e0-ad23-c765753c923e] → typing
+[hook] a6d6ceec-eac2-49e0-ad23-c765753c923e tool_use:Bash
+[a6d6ceec-eac2-49e0-ad23-c765753c923e] → thinking
+[hook] a6d6ceec-eac2-49e0-ad23-c765753c923e tool_use:Read
+[a6d6ceec-eac2-49e0-ad23-c765753c923e] → idle
+[a6d6ceec-eac2-49e0-ad23-c765753c923e] → typing
+[hook] a6d6ceec-eac2-49e0-ad23-c765753c923e tool_use:Bash
+[a6d6ceec-eac2-49e0-ad23-c765753c923e] → idle
+[a6d6ceec-eac2-49e0-ad23-c765753c923e] → thinking
+[hook] a6d6ceec-eac2-49e0-ad23-c765753c923e tool_use:Read
+[a6d6ceec-eac2-49e0-ad23-c765753c923e] → idle
+[registry] stop grace expired: 9fbef9f1-9a47-40fb-9912-d625a0f9c27e
+[a6d6ceec-eac2-49e0-ad23-c765753c923e] → sleeping
+[a6d6ceec-eac2-49e0-ad23-c765753c923e] → typing
+[hook] a6d6ceec-eac2-49e0-ad23-c765753c923e tool_use:Bash
+[a6d6ceec-eac2-49e0-ad23-c765753c923e] → idle
+[registry] new session: 99ab03f8-5c1e-46d6-97a9-d9184607ddee (main=true)
+[99ab03f8-5c1e-46d6-97a9-d9184607ddee] → typing
+[hook] 99ab03f8-5c1e-46d6-97a9-d9184607ddee tool_use:Bash
+[99ab03f8-5c1e-46d6-97a9-d9184607ddee] → idle
+[a6d6ceec-eac2-49e0-ad23-c765753c923e] → typing
+[hook] a6d6ceec-eac2-49e0-ad23-c765753c923e tool_use:Write
+[a6d6ceec-eac2-49e0-ad23-c765753c923e] → idle
+[99ab03f8-5c1e-46d6-97a9-d9184607ddee] → typing
+[hook] 99ab03f8-5c1e-46d6-97a9-d9184607ddee tool_use:Bash
+[99ab03f8-5c1e-46d6-97a9-d9184607ddee] → idle
+[a6d6ceec-eac2-49e0-ad23-c765753c923e] → sleeping
+[a6d6ceec-eac2-49e0-ad23-c765753c923e] → thinking
+[hook] a6d6ceec-eac2-49e0-ad23-c765753c923e tool_use:Read
+[a6d6ceec-eac2-49e0-ad23-c765753c923e] → idle
+[ws] client connected
+[99ab03f8-5c1e-46d6-97a9-d9184607ddee] → typing
+[hook] 99ab03f8-5c1e-46d6-97a9-d9184607ddee tool_use:Write

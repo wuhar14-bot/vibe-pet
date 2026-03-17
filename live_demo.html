@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Clawd — Live Sessions</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #06060f;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      min-height: 100vh;
+      font-family: 'Courier New', monospace;
+    }
+    #panels {
+      display: flex; flex-wrap: wrap;
+      gap: 24px; justify-content: center; align-items: center;
+      padding: 24px;
+    }
+    .panel {
+      display: flex; flex-direction: column; align-items: center;
+      transition: opacity 0.7s, transform 0.7s;
+    }
+    .panel.leaving { opacity: 0; transform: translateY(16px); pointer-events: none; }
+    .canvas-wrap { position: relative; display: inline-block; }
+    canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block;
+             border: 1px solid #1a1a2e; border-radius: 4px; }
+    .session-state  { color: #D77757; font-size: 13px; letter-spacing: 3px; margin-top: 6px; opacity: 0.8; text-align: center; }
+    .session-title  { color: #8ab4f8; font-size: 13px; margin-top: 4px; text-align: center; max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0.85; }
+    .session-detail { color: #5a8a5a; font-size: 11px; margin-top: 3px; text-align: center; max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: monospace; }
+    .session-id     { color: #2a2a44; font-size: 10px; letter-spacing: 1px; margin-top: 2px; text-align: center; }
+    #ws-status { position: fixed; top: 12px; right: 16px; color: #334; font-size: 9px; letter-spacing: 1px; }
+    #no-sessions { color: #1a1a2e; font-size: 11px; letter-spacing: 2px; }
+  </style>
+</head>
+<body>
+  <div id="ws-status">connecting...</div>
+  <div id="panels"></div>
+  <div id="no-sessions">waiting for sessions...</div>
+
+<script>
+'use strict';
+
+// ─── Buffer size (always 200×150, display canvas scales) ─────────────
+const W = 200, H = 150;
+const S = 3;
+const FOOT_Y = 119;
+const CX = Math.floor(100 - 7.5 * S);
+const CY = FOOT_Y - 15 * S;
+const gx = x => CX + x * S;
+const gy = y => CY + y * S;
+
+// ─── Palette ─────────────────────────────────────────────────────────
+const C = {
+  body:'#DE886D', bodyDim:'#8B4A38',
+  eye:'#000000', eyeSad:'#334',
+  shadow:'rgba(0,0,0,0.45)',
+  sky1:'#080c18', sky2:'#0d1528',
+  ground:'#1a2a1a', groundLine:'#223322', groundDash:'#2a3d2a',
+  data:'#40C4FF',
+  laptop:'#546E7A', laptopS:'#78909C',
+  bubble:'#d8d8e8',
+  zzz:'#8ab4f8',
+  spark:'#FFD700', spark2:'#FF6B6B',
+  qmark:'#ffffff',
+  alert:'#FF3D00',
+  smoke:'#B0BEC5', smoke2:'#CFD8DC',
+  magic:'#CE93D8', magic2:'#FFC107',
+  wand:'#8D6E63', wandTip:'#FFD700',
+  hat:'#673AB7', hatBrim:'#512DA8',
+  juggle:['#FF6B6B','#FFD700','#40C4FF'],
+  broom:'#8D6E63', broomHead:'#FFA726',
+};
+
+// ─── State definitions ────────────────────────────────────────────────
+const STATES = {
+  idle:         { label:'IDLE',     aL:0,   aR:0,   aLdy:0,  aRdy:0,  eyeSq:0,   eyeDy:0,   prop:null,    color:null,        spawn:null },
+  typing:       { label:'TYPING',   aL:88,  aR:-88, aLdy:0,  aRdy:0,  eyeSq:0.5, eyeDy:0,   prop:'laptop', color:null, jitter:0.5,
+    spawn: (g2,A,t) => { if (Math.random()<0.2) spawnP(g2,A, gx(7.5)+(Math.random()-.5)*14, gy(11), {vy:-0.55,dc:0.022,sz:1.5,c:C.data}); }
+  },
+  thinking:     { label:'THINKING', aL:0,   aR:0,   aLdy:0,  aRdy:0,  eyeSq:0,   eyeDy:-1,  prop:'bubble', color:null, spawn:null },
+  happy:        { label:'HAPPY',    aL:-70, aR:70,  aLdy:-4, aRdy:-4, eyeSq:-0.4,eyeDy:0,   prop:null,    color:null, bounce:true,
+    spawn: (g2,A,t) => { if (Math.random()<0.14) { const ox=gx(7.5)+(Math.random()-.5)*22; spawnP(g2,A,ox,gy(3)+Math.random()*6,{vx:(Math.random()-.5)*1.2,vy:-0.9-Math.random()*0.5,dc:0.028,sz:2,c:Math.random()<0.5?C.spark:C.spark2,tp:'star'}); } }
+  },
+  sleeping:     { label:'SLEEPING', aL:0,   aR:0,   aLdy:0,  aRdy:0,  eyeSq:1.0, eyeDy:0,   prop:'zzz',   color:null, breathSlow:true, spawn:null },
+  confused:     { label:'CONFUSED', aL:-45, aR:0,   aLdy:-3, aRdy:0,  eyeSq:0,   eyeDy:0,   prop:'qmarks',color:null, headTilt:true, spawn:null },
+  notification: { label:'READY',    aL:-50, aR:-50, aLdy:-2, aRdy:-2, eyeSq:-0.2,eyeDy:0,   prop:null,    color:null, breathSlow:true, spawn:null },
+  juggling:     { label:'JUGGLING', aL:-30, aR:30,  aLdy:0,  aRdy:0,  eyeSq:0,   eyeDy:-1,  prop:'juggle',color:null, spawn:null },
+  overheated:   { label:'OVERHEAT', aL:0,   aR:30,  aLdy:4,  aRdy:0,  eyeSq:0.7, eyeDy:2,   prop:'smoke', color:null, slump:true,
+    spawn: (g2,A,t) => { if (Math.random()<0.12) spawnP(g2,A, gx(7.5)+(Math.random()-.5)*8,gy(5)+Math.random()*4,{vx:(Math.random()-.5)*0.4,vy:-0.35,dc:0.012,sz:2.5,c:Math.random()<0.5?C.smoke:C.smoke2}); }
+  },
+  wizard:       { label:'WIZARD',   aL:20,  aR:-120,aLdy:-2, aRdy:-3, eyeSq:-0.3,eyeDy:-0.5,prop:'wizard',color:null,
+    spawn: (g2,A,t) => { if (Math.random()<0.11) { const wx=gx(14.5),wy=gy(4); spawnP(g2,A,wx,wy,{vx:(Math.random()-.5)*1.5,vy:-1-Math.random()*0.8,dc:0.028,sz:2,c:Math.random()<0.5?C.magic:C.magic2,tp:'star'}); } }
+  },
+  disconnected: { label:'OFFLINE',  aL:0,   aR:0,   aLdy:0,  aRdy:0,  eyeSq:0,   eyeDy:1.5, prop:'offline',color:C.bodyDim, spawn:null },
+  ending:       { label:'BYE~',     aL:-70, aR:-70, aLdy:-4, aRdy:-4, eyeSq:-0.3,eyeDy:0,   prop:null,    color:null,
+    spawn: (g2,A,t) => { if (Math.random()<0.06) spawnP(g2,A, gx(7.5)+(Math.random()-.5)*18,gy(3)+Math.random()*4,{vx:(Math.random()-.5)*0.8,vy:-0.6-Math.random()*0.3,dc:0.02,sz:1.5,c:'#8ab4f8',tp:'star'}); }
+  },
+  sweeping:     { label:'SWEEPING', aL:80,  aR:-30, aLdy:0,  aRdy:0,  eyeSq:0,   eyeDy:0,   prop:'broom', color:null, sweepRock:true,
+    spawn: (g2,A,t) => { if (Math.random()<0.15) spawnP(g2,A, gx(1)+(Math.random()-.5)*6,gy(14.5),{vx:(Math.random()-.5)*0.8,vy:-0.4,dc:0.03,sz:1,c:'#aaa'}); }
+  },
+};
+
+// ─── Shared particle helpers ──────────────────────────────────────────
+function spawnP(g2, A, x, y, o={}) {
+  A.parts.push({
+    x, y,
+    vx: (o.vx??0)+(Math.random()-.5)*(o.sp??0.8),
+    vy: o.vy??-0.7,
+    life: 1, decay: o.dc??0.018,
+    sz: o.sz??1.5, c: o.c??C.data,
+    type: o.tp??'sq',
+    ang: Math.random()*Math.PI*2,
+    spin: (Math.random()-.5)*0.12,
+    grav: o.grav??0,
+  });
+}
+
+function tickP(parts, dt) {
+  for (const p of parts) {
+    p.x += p.vx*dt; p.y += p.vy*dt;
+    p.vy += p.grav*dt;
+    p.ang += p.spin*dt; p.life -= p.decay*dt;
+  }
+  return parts.filter(p => p.life > 0);
+}
+
+function drawParts(g2, parts) {
+  for (const p of parts) {
+    g2.globalAlpha = Math.max(0, p.life);
+    g2.fillStyle = p.c;
+    const x=Math.floor(p.x), y=Math.floor(p.y), s=p.sz;
+    if (p.type === 'star') {
+      g2.save(); g2.translate(x,y); g2.rotate(p.ang);
+      g2.fillRect(-s/2,-s*1.6,s,s*3.2); g2.fillRect(-s*1.6,-s/2,s*3.2,s);
+      g2.restore();
+    } else { g2.fillRect(x-s/2,y-s/2,s,s); }
+    g2.globalAlpha=1;
+  }
+}
+
+// ─── Shared lerp ────────────────────────────────────────────────────
+function lerp(a,b,t){return a+(b-a)*t;}
+
+// ─── Per-panel animation update ──────────────────────────────────────
+function updateAnim(A, target, dt) {
+  const D = STATES[target] ?? STATES.idle;
+  const sp = 0.09 * dt;
+  A.t += dt; A.bT += (D.breathSlow ? 0.016 : 0.03) * dt;
+  A.aL    = lerp(A.aL,    D.aL,    sp);
+  A.aR    = lerp(A.aR,    D.aR,    sp);
+  A.aLdy  = lerp(A.aLdy,  D.aLdy,  sp);
+  A.aRdy  = lerp(A.aRdy,  D.aRdy,  sp);
+  A.eyeSq = lerp(A.eyeSq, D.eyeSq, sp);
+  A.eyeDy = lerp(A.eyeDy, D.eyeDy, sp);
+  A.jitter= lerp(A.jitter, D.jitter??0, sp);
+  A.headTilt = lerp(A.headTilt, D.headTilt?0.08:0, sp*0.6);
+  A.slump = lerp(A.slump, D.slump?1:0, sp*0.5);
+  A.sweepRock = lerp(A.sweepRock, D.sweepRock?1:0, sp*0.6);
+  A.color = D.color ?? C.body;
+
+  // Prop fade
+  const wantProp = D.prop ?? null;
+  if (wantProp !== A.prop) {
+    if (A.propO < 0.05) A.prop = wantProp;
+    A.propO = lerp(A.propO, 0, sp*2);
+  } else { A.propO = lerp(A.propO, wantProp?1:0, sp*2); }
+
+  // Blink
+  A.blinkT += dt/60; A.nextBlink -= dt/60;
+  if (A.nextBlink < 0) { A.nextBlink = 2+Math.random()*3.5; A.blinkT = 0; }
+
+  // Eye wander
+  A.nextLook -= dt/60;
+  if (A.nextLook < 0) { A.nextLook = 1.8+Math.random()*3; A.lookDx=(Math.random()-.5)*4; }
+  const wantDx = ['idle','disconnected','sleeping'].includes(target) ? A.lookDx : 0;
+  A.eyeDx = lerp(A.eyeDx, wantDx, 0.04*dt);
+
+  // Arm oscillation
+  if (Math.abs(A.aL) > 50) A.armTypePh += 0.45*dt;
+
+  // Bounce
+  if (D.bounce) {
+    A.bounceV += 0.4*dt; A.bounceY += A.bounceV*dt;
+    if (A.bounceY >= 0) { A.bounceY=0; A.bounceV=-((D.bounceStr??1.8)+Math.random()*0.8); }
+  } else { A.bounceY=lerp(A.bounceY,0,0.1*dt); A.bounceV=0; }
+
+  // Jitter
+  if (A.jitter>0.1) { A.jx=(Math.random()-.5)*A.jitter*2; A.jy=(Math.random()-.5)*A.jitter; }
+  else { A.jx=lerp(A.jx,0,0.15*dt); A.jy=lerp(A.jy,0,0.15*dt); }
+
+  A.jugPh += 0.07*dt;
+}
+
+// ─── Draw scene (stars, sky, ground) ────────────────────────────────
+function drawScene(g2, stars) {
+  g2.fillStyle=C.sky1; g2.fillRect(0,0,W,75);
+  g2.fillStyle=C.sky2; g2.fillRect(0,75,W,45);
+  for (const s of stars) {
+    s.tw += s.sp;
+    g2.globalAlpha = 0.3 + 0.7*Math.abs(Math.sin(s.tw));
+    g2.fillStyle=s.c; g2.fillRect(Math.floor(s.x),Math.floor(s.y),s.s,s.s);
+  }
+  g2.globalAlpha=1;
+  g2.fillStyle=C.ground; g2.fillRect(0,FOOT_Y+1,W,H-FOOT_Y-1);
+  g2.fillStyle=C.groundLine; g2.fillRect(0,FOOT_Y+1,W,3);
+  g2.fillStyle=C.groundDash;
+  for (let x=2;x<W;x+=8) g2.fillRect(x,FOOT_Y+1,3,2);
+}
+
+// ─── Draw Clawd ───────────────────────────────────────────────────────
+function drawClawd(g2, A, target) {
+  const breathe = 1 + Math.sin(A.bT)*0.014;
+  const bx = x => Math.floor(gx(x)+A.jx);
+  const by = y => Math.floor(gy(y)+A.jy-A.bounceY);
+  const slumpDy = A.slump*3;
+
+  function rect(x,y,w,h,c){g2.fillStyle=c;g2.fillRect(Math.floor(x),Math.floor(y),w,h);}
+
+  // Shadow
+  rect(gx(2),gy(15.3),11*S,2,C.shadow);
+  // Legs
+  rect(gx(3),gy(13),S,S*2,A.color); rect(gx(5),gy(13),S,S*2,A.color);
+  rect(gx(9),gy(13),S,S*2,A.color); rect(gx(11),gy(13),S,S*2,A.color);
+  // Torso
+  const tH=Math.round(7*S*breathe);
+  const tY=by(6)+(7*S-tH)+slumpDy;
+  rect(bx(2),tY,11*S,tH,A.color);
+
+  // Arms
+  const aLRad=A.aL*Math.PI/180, aRRad=A.aR*Math.PI/180;
+  const typeWL=Math.abs(A.aL)>50?Math.sin(A.armTypePh)*18*Math.PI/180:0;
+  const typeWR=Math.abs(A.aR)>50?Math.sin(A.armTypePh+Math.PI)*18*Math.PI/180:0;
+  const sweepW=A.sweepRock*Math.sin(A.t*0.18)*20*Math.PI/180;
+
+  g2.save(); g2.translate(bx(1),by(10)+A.aLdy+slumpDy);
+  g2.rotate(aLRad+typeWL+sweepW);
+  rect(-S,-S,S*2,S*2,A.color); g2.restore();
+  g2.save(); g2.translate(bx(14),by(10)+A.aRdy+slumpDy);
+  g2.rotate(aRRad+typeWR);
+  rect(-S,-S,S*2,S*2,A.color); g2.restore();
+
+  // Eyes
+  const blinkSc=(A.blinkT<0.07&&A.eyeSq<0.95)?0.05:1;
+  const eyeH=Math.max(1,Math.round(S*2*(1-A.eyeSq)*blinkSc));
+  const edx=Math.floor(A.eyeDx), edy=Math.floor(A.eyeDy*S);
+  const ey=by(8)+(S*2-eyeH)+edy+slumpDy;
+  const eyeC=target==='disconnected'?C.eyeSad:C.eye;
+  rect(bx(4)+edx,ey,S,eyeH,eyeC); rect(bx(10)+edx,ey,S,eyeH,eyeC);
+
+  // Props
+  const po=A.propO;
+  if (po>0.02) {
+    g2.globalAlpha=po;
+    if (A.prop==='laptop') {
+      const lx=bx(2)-1,ly=by(9.5)+slumpDy;
+      rect(lx-2,ly+17,38,4,C.laptop); rect(lx,ly,35,19,C.laptopS);
+      const glow=0.4+0.6*Math.sin(A.t*0.15);
+      g2.globalAlpha=po*glow*0.5; rect(lx+13,ly+6,7,7,C.data);
+      g2.globalAlpha=po; rect(lx+15,ly+8,3,3,'#fff');
+    }
+    if (A.prop==='bubble') {
+      const bob=Math.sin(A.t*0.1)*1.5;
+      const bx2=bx(7.5)+2,by2=gy(-2)+bob;
+      rect(bx2-18,by2-18,36,26,C.bubble);
+      g2.fillStyle=C.sky1;
+      g2.fillRect(bx2-18,by2-18,3,3);g2.fillRect(bx2+15,by2-18,3,3);
+      g2.fillRect(bx2-18,by2+5,3,3);g2.fillRect(bx2+15,by2+5,3,3);
+      rect(bx2-1,by2+8,3,3,C.bubble); rect(bx2,by2+13,2,2,C.bubble);
+      const dp=(A.t*0.05)%1;
+      for (let i=0;i<3;i++){const vis=((dp+i*0.33)%1)>0.3;if(vis)rect(bx2-6+i*6,by2-6,3,3,'#888');}
+    }
+    if (A.prop==='zzz') {
+      const zBase=(A.t*0.035)%1;
+      for (let i=0;i<3;i++){
+        const p=(zBase+i*0.33)%1;
+        const zx=bx(11)+i*3+p*5,zy=gy(2)-p*22;
+        g2.globalAlpha=po*(1-p)*0.9;
+        const sz=Math.max(2,(3-i)*2);
+        g2.fillStyle=C.zzz;
+        g2.fillRect(Math.floor(zx),Math.floor(zy),sz,1);
+        g2.fillRect(Math.floor(zx+sz-1),Math.floor(zy+1),1,sz-2);
+        g2.fillRect(Math.floor(zx),Math.floor(zy+sz-1),sz,1);
+      }
+      g2.globalAlpha=po;
+    }
+    if (A.prop==='qmarks') {
+      for(let i=0;i<2;i++){
+        const p=((A.t*0.03)+i*0.5)%1;
+        const qx=bx(9+i*3)+p*3,qy=gy(2)-p*18;
+        g2.globalAlpha=po*(1-p);g2.fillStyle=C.qmark;
+        g2.fillRect(Math.floor(qx),Math.floor(qy),2,1);
+        g2.fillRect(Math.floor(qx+1),Math.floor(qy+1),1,1);
+        g2.fillRect(Math.floor(qx+1),Math.floor(qy+2),1,1);
+        g2.fillRect(Math.floor(qx),Math.floor(qy+3),1,1);
+        g2.fillRect(Math.floor(qx),Math.floor(qy+5),1,1);
+      }
+      g2.globalAlpha=po;
+    }
+    if (A.prop==='alert') {
+      const bob=Math.abs(Math.sin(A.t*0.2))*3;
+      const ax=bx(8),ay=gy(-1)-bob;
+      g2.fillStyle=C.alert;
+      g2.fillRect(Math.floor(ax),Math.floor(ay),3,8);
+      g2.fillRect(Math.floor(ax),Math.floor(ay+10),3,3);
+    }
+    if (A.prop==='juggle') {
+      const jAmp=16,jW=18;
+      for(let i=0;i<3;i++){
+        const ph=A.jugPh+i*(Math.PI*2/3);
+        const jx2=gx(7.5)+Math.sin(ph)*jW;
+        const jy2=gy(3)-Math.abs(Math.sin(ph*0.5))*jAmp;
+        g2.fillStyle=C.juggle[i];
+        g2.fillRect(Math.floor(jx2)-2,Math.floor(jy2)-2,4,4);
+      }
+    }
+    if (A.prop==='wizard') {
+      const wx=bx(7.5)-9,wy=gy(3);
+      g2.fillStyle=C.hatBrim;g2.fillRect(Math.floor(wx-2),Math.floor(wy+8),22,3);
+      g2.fillStyle=C.hat;
+      g2.fillRect(Math.floor(wx+4),Math.floor(wy),10,9);
+      g2.fillRect(Math.floor(wx+6),Math.floor(wy-5),6,6);
+      g2.fillRect(Math.floor(wx+7),Math.floor(wy-9),4,5);
+      g2.fillStyle=C.magic2;g2.fillRect(Math.floor(wx+8),Math.floor(wy+3),2,2);
+      const wandX=bx(15),wandY=by(7);
+      rect(wandX,wandY,2,14,C.wand); rect(wandX,wandY-2,2,3,C.wandTip);
+    }
+    if (A.prop==='offline') {
+      const p=(A.t*0.018)%1;
+      g2.globalAlpha=po*(0.3+Math.sin(A.t*0.05)*0.3);
+      g2.fillStyle='#557';
+      const qx=bx(9),qy=gy(-1)-p*10;
+      g2.fillRect(Math.floor(qx),Math.floor(qy),2,1);
+      g2.fillRect(Math.floor(qx+1),Math.floor(qy+1),1,1);
+      g2.fillRect(Math.floor(qx+1),Math.floor(qy+2),1,1);
+      g2.fillRect(Math.floor(qx),Math.floor(qy+3),1,1);
+      g2.fillRect(Math.floor(qx),Math.floor(qy+5),1,1);
+    }
+    if (A.prop==='broom') {
+      const sweepX=Math.sin(A.t*0.18)*6;
+      const brx=bx(-1)+sweepX,bry=by(9);
+      rect(brx,bry,2,22,C.broom);
+      rect(brx-4,bry+20,14,4,C.broomHead);
+      rect(brx-2,bry+24,10,2,C.broomHead);
+    }
+    g2.globalAlpha=1;
+  }
+}
+
+// ─── SessionPanel ─────────────────────────────────────────────────────
+class SessionPanel {
+  constructor(id, initialState) {
+    this.id = id;
+    this.target = STATES[initialState] ? initialState : 'idle';
+    this.leaving = false;
+
+    this.A = {
+      t:0, bT:0, blinkT:10, nextBlink:3, eyeDx:0, nextLook:4, lookDx:0,
+      aL:0, aR:0, aLdy:0, aRdy:0, eyeSq:0, eyeDy:0,
+      prop:null, propO:0, color:C.body,
+      jitter:0, jx:0, jy:0, bounceY:0, bounceV:0,
+      headTilt:0, slump:0, sweepRock:0, armTypePh:0, jugPh:0,
+      parts: [],
+    };
+    this.stars = Array.from({length:20}, () => ({
+      x:Math.random()*W, y:Math.random()*60,
+      s:Math.random()<0.25?1.5:1,
+      tw:Math.random()*Math.PI*2, sp:0.018+Math.random()*0.025,
+      c:['#fff','#40C4FF','#FFE066','#FF8A80'][0|Math.random()*4],
+    }));
+
+    // Buffer canvas (always 200×150, pixel-perfect)
+    this.buf = document.createElement('canvas');
+    this.buf.width = W; this.buf.height = H;
+    this.g = this.buf.getContext('2d');
+    this.g.imageSmoothingEnabled = false;
+
+    // Display canvas (scaled by CSS/size)
+    this.display = document.createElement('canvas');
+    this.dctx = this.display.getContext('2d');
+    this.dctx.imageSmoothingEnabled = false;
+
+    // Labels
+    this.stateEl = document.createElement('div');
+    this.stateEl.className = 'session-state';
+    this.stateEl.textContent = STATES[this.target]?.label ?? 'IDLE';
+
+    this.titleEl = document.createElement('div');
+    this.titleEl.className = 'session-title';
+    this.titleEl.textContent = '';
+
+    this.detailEl = document.createElement('div');
+    this.detailEl.className = 'session-detail';
+    this.detailEl.textContent = '';
+
+    this.idEl = document.createElement('div');
+    this.idEl.className = 'session-id';
+    this.idEl.textContent = id.slice(0, 8);
+
+    // Assemble DOM
+    const wrap = document.createElement('div');
+    wrap.className = 'canvas-wrap';
+    wrap.appendChild(this.display);
+
+    this.el = document.createElement('div');
+    this.el.className = 'panel';
+    this.el.appendChild(wrap);
+    this.el.appendChild(this.stateEl);
+    this.el.appendChild(this.titleEl);
+    this.el.appendChild(this.detailEl);
+    this.el.appendChild(this.idEl);
+    document.getElementById('panels').appendChild(this.el);
+
+    this._lastTs = 0;
+    this._rafId = requestAnimationFrame(ts => this._loop(ts));
+  }
+
+  setScale(scale) {
+    const w = Math.round(W * scale);
+    this.display.width  = w;
+    this.display.height = Math.round(H * scale);
+    this.dctx.imageSmoothingEnabled = false;
+    // Scale fonts proportionally with panel size
+    const base = Math.round(scale * 5);
+    this.stateEl.style.fontSize  = (base + 4) + 'px';
+    this.titleEl.style.fontSize  = (base + 3) + 'px';
+    this.detailEl.style.fontSize = (base + 1) + 'px';
+    this.idEl.style.fontSize     = base + 'px';
+    this.titleEl.style.maxWidth  = w + 'px';
+    this.detailEl.style.maxWidth = w + 'px';
+  }
+
+  setState(s) {
+    if (!STATES[s]) return;
+    this.target = s;
+    this.stateEl.textContent = STATES[s].label;
+  }
+
+  setTitle(t) {
+    if (t && !this.titleEl.textContent) this.titleEl.textContent = t;
+  }
+
+  setDetail(d) {
+    this.detailEl.textContent = d ?? '';
+  }
+
+  startLeaving() {
+    this.leaving = true;
+    this.el.classList.add('leaving');
+    setTimeout(() => {
+      this.el.remove();
+      cancelAnimationFrame(this._rafId);
+    }, 750);
+  }
+
+  _loop(ts) {
+    const dt = Math.min((ts - this._lastTs) / (1000/60), 3);
+    this._lastTs = ts;
+
+    updateAnim(this.A, this.target, dt);
+    const D = STATES[this.target] ?? STATES.idle;
+    if (D.spawn && this.A.parts.length < 35) D.spawn(this.g, this.A, this.A.t);
+    this.A.parts = tickP(this.A.parts, dt);
+
+    const g2 = this.g;
+    g2.clearRect(0,0,W,H);
+    drawScene(g2, this.stars);
+    drawParts(g2, this.A.parts);
+    drawClawd(g2, this.A, this.target);
+
+    this.dctx.clearRect(0,0,this.display.width,this.display.height);
+    this.dctx.drawImage(this.buf,0,0,this.display.width,this.display.height);
+
+    this._rafId = requestAnimationFrame(ts => this._loop(ts));
+  }
+}
+
+// ─── Panel manager ────────────────────────────────────────────────────
+const panels = new Map();   // id → SessionPanel
+
+function getScale(count) {
+  if (count <= 1) return 3;
+  if (count === 2) return 2.5;
+  if (count === 3) return 2;
+  if (count === 4) return 1.8;
+  return 1.4;
+}
+
+function refreshScales() {
+  const count = panels.size;
+  const scale = getScale(count);
+  for (const p of panels.values()) p.setScale(scale);
+  document.getElementById('no-sessions').style.display = count === 0 ? '' : 'none';
+}
+
+function onSessionsUpdate(sessions) {
+  const newIds = new Set(sessions.map(s => s.id));
+
+  // Remove gone sessions
+  for (const [id, panel] of panels) {
+    if (!newIds.has(id)) {
+      panel.startLeaving();
+      panels.delete(id);
+    }
+  }
+
+  // Add or update
+  for (const s of sessions) {
+    if (!panels.has(s.id)) {
+      const panel = new SessionPanel(s.id, s.state);
+      panels.set(s.id, panel);
+    } else {
+      panels.get(s.id).setState(s.state);
+    }
+    panels.get(s.id).setTitle(s.title);
+    panels.get(s.id).setDetail(s.detail);
+  }
+
+  refreshScales();
+}
+
+// ─── WebSocket ───────────────────────────────────────────────────────
+const WS_URL = 'ws://localhost:3721';
+const wsStatus = document.getElementById('ws-status');
+let ws, wsRetry;
+
+function connectWS() {
+  ws = new WebSocket(WS_URL);
+  ws.onopen = () => {
+    clearTimeout(wsRetry);
+    wsStatus.style.color = '#40C4FF';
+    wsStatus.textContent = 'WS: live';
+  };
+  ws.onmessage = e => {
+    try {
+      const msg = JSON.parse(e.data);
+      if (msg.sessions) onSessionsUpdate(msg.sessions);
+    } catch {}
+  };
+  ws.onclose = () => {
+    wsStatus.style.color = '#334';
+    wsStatus.textContent = 'WS: reconnecting...';
+    wsRetry = setTimeout(connectWS, 3000);
+  };
+  ws.onerror = () => ws.close();
+}
+
+connectWS();
+</script>
+</body>
+</html>

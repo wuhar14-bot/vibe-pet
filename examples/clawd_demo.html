@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Clawd — Full State Demo</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #06060f;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      min-height: 100vh;
+      font-family: 'Courier New', monospace;
+    }
+    canvas { image-rendering: pixelated; image-rendering: crisp-edges; border: 1px solid #1a1a2e; border-radius: 4px; }
+    .controls { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; max-width: 420px; justify-content: center; }
+    .btn {
+      background: #111; color: #445; border: 1px solid #1d1d2e;
+      padding: 5px 11px; border-radius: 4px; cursor: pointer;
+      font-family: inherit; font-size: 10px; letter-spacing: 1px; transition: all 0.12s;
+    }
+    .btn:hover { border-color: #D77757; color: #D77757; }
+    .btn.active { border-color: #D77757; color: #D77757; background: #1a0e08; }
+    .state-label { color: #D77757; font-size: 11px; letter-spacing: 3px; margin-top: 8px; opacity: 0.8; min-width: 120px; text-align: center; }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="400" height="300"></canvas>
+  <div class="controls" id="ctrl"></div>
+  <div class="state-label" id="lbl">idle</div>
+
+<script>
+'use strict';
+
+// ─── Canvas ──────────────────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+const W = 200, H = 150;
+const buf = document.createElement('canvas');
+buf.width = W; buf.height = H;
+const g = buf.getContext('2d');
+g.imageSmoothingEnabled = false;
+
+// ─── Grid: S=3 (pixel-perfect, compact) ─────────────────────────────
+//   SVG source: 15×16 grid → character = 45×48px on 200×150 buffer
+const S = 3;
+const FOOT_Y = 119;                // canvas y where feet rest
+const CX = Math.floor(100 - 7.5 * S);   // 77 — left edge of grid
+const CY = FOOT_Y - 15 * S;             // 74 — top edge of grid
+
+const gx = x => CX + x * S;
+const gy = y => CY + y * S;
+
+// ─── Palette ─────────────────────────────────────────────────────────
+const C = {
+  body:   '#DE886D',
+  bodyDim:'#8B4A38',   // disconnected / dimmed
+  eye:    '#000000',
+  eyeSad: '#334',      // looking down
+  shadow: 'rgba(0,0,0,0.45)',
+  sky1:   '#080c18', sky2: '#0d1528',
+  ground: '#1a2a1a', groundLine: '#223322', groundDash: '#2a3d2a',
+  data:   '#40C4FF',
+  laptop: '#546E7A', laptopS: '#78909C',
+  bubble: '#d8d8e8',
+  zzz:    '#8ab4f8',
+  spark:  '#FFD700', spark2: '#FF6B6B',
+  qmark:  '#ffffff',
+  alert:  '#FF3D00',
+  smoke:  '#B0BEC5', smoke2: '#CFD8DC',
+  magic:  '#CE93D8', magic2: '#FFC107',
+  wand:   '#8D6E63', wandTip:'#FFD700',
+  hat:    '#673AB7', hatBrim:'#512DA8',
+  juggle: ['#FF6B6B','#FFD700','#40C4FF'],
+  broom:  '#8D6E63', broomHead:'#FFA726',
+};
+
+// ─── Stars ───────────────────────────────────────────────────────────
+const stars = Array.from({length: 30}, () => ({
+  x: Math.random() * W, y: Math.random() * 70,
+  s: Math.random() < 0.25 ? 1.5 : 1,
+  tw: Math.random() * Math.PI * 2,
+  sp: 0.018 + Math.random() * 0.025,
+  c: ['#fff','#40C4FF','#FFE066','#FF8A80'][0|Math.random()*4],
+}));
+
+// ─── Particles ───────────────────────────────────────────────────────
+class P {
+  constructor(x, y, o = {}) {
+    this.x = x; this.y = y;
+    this.vx = (o.vx ?? 0) + (Math.random()-.5) * (o.sp ?? 0.8);
+    this.vy = o.vy ?? -0.7;
+    this.life = 1; this.decay = o.dc ?? 0.018;
+    this.sz = o.sz ?? 1.5; this.c = o.c ?? C.data;
+    this.type = o.tp ?? 'sq';
+    this.ang = Math.random() * Math.PI * 2;
+    this.spin = (Math.random()-.5) * 0.12;
+    this.grav = o.grav ?? 0;
+  }
+  tick(dt) {
+    this.x += this.vx * dt; this.y += this.vy * dt;
+    this.vy += this.grav * dt;
+    this.ang += this.spin * dt; this.life -= this.decay * dt;
+  }
+  draw() {
+    g.globalAlpha = Math.max(0, this.life);
+    g.fillStyle = this.c;
+    const x = Math.floor(this.x), y = Math.floor(this.y), s = this.sz;
+    if (this.type === 'star') {
+      g.save(); g.translate(x,y); g.rotate(this.ang);
+      g.fillRect(-s/2,-s*1.6,s,s*3.2); g.fillRect(-s*1.6,-s/2,s*3.2,s);
+      g.restore();
+    } else if (this.type === 'ball') {
+      g.fillRect(x-s/2, y-s/2, s+1, s+1);
+    } else { g.fillRect(x-s/2, y-s/2, s, s); }
+    g.globalAlpha = 1;
+  }
+}
+let parts = [];
+const emit = (x, y, o) => parts.push(new P(x, y, o));
+
+// ─── Juggling balls state ─────────────────────────────────────────────
+const jugBalls = [0,1,2].map(i => ({ phase: (i/3)*Math.PI*2 }));
+
+// ─── State definitions ────────────────────────────────────────────────
+const STATES = {
+  idle: {
+    label: 'IDLE',
+    aL: 0, aR: 0, aLdy: 0, aRdy: 0,
+    eyeSq: 0, eyeDy: 0,
+    prop: null,
+    color: null,
+    spawn: null,
+  },
+  typing: {
+    label: 'TYPING',
+    aL: 88, aR: -88, aLdy: 0, aRdy: 0,
+    eyeSq: 0.5, eyeDy: 0,
+    prop: 'laptop',
+    color: null,
+    jitter: 0.5,
+    spawn: (t) => {
+      if (Math.random() < 0.2) emit(gx(7.5)+(Math.random()-.5)*14, gy(11), {vy:-0.55, dc:0.022, sz:1.5, c:C.data});
+    },
+  },
+  thinking: {
+    label: 'THINKING',
+    aL: 0, aR: 0, aLdy: 0, aRdy: 0,
+    eyeSq: 0, eyeDy: -1,
+    prop: 'bubble',
+    color: null,
+    spawn: null,
+  },
+  happy: {
+    label: 'HAPPY',
+    aL: -70, aR: 70, aLdy: -4, aRdy: -4,
+    eyeSq: -0.4,  eyeDy: 0,
+    prop: null,
+    color: null,
+    bounce: true,
+    spawn: (t) => {
+      if (Math.random() < 0.14) {
+        const ox = gx(7.5) + (Math.random()-.5)*22;
+        emit(ox, gy(3)+Math.random()*6, {vx:(Math.random()-.5)*1.2, vy:-0.9-Math.random()*0.5, dc:0.028, sz:2, c:Math.random()<0.5?C.spark:C.spark2, tp:'star'});
+      }
+    },
+  },
+  sleeping: {
+    label: 'SLEEPING',
+    aL: 0, aR: 0, aLdy: 0, aRdy: 0,
+    eyeSq: 1.0, eyeDy: 0,
+    prop: 'zzz',
+    color: null,
+    breathSlow: true,
+    spawn: null,
+  },
+  confused: {
+    label: 'CONFUSED',
+    aL: -45, aR: 0, aLdy: -3, aRdy: 0,
+    eyeSq: 0, eyeDy: 0,
+    prop: 'qmarks',
+    color: null,
+    headTilt: true,
+    spawn: null,
+  },
+  notification: {
+    label: 'ALERT',
+    aL: -80, aR: -80, aLdy: -3, aRdy: -3,
+    eyeSq: -0.5, eyeDy: 0,
+    prop: 'alert',
+    color: null,
+    bounce: true,
+    bounceStr: 2.5,
+    spawn: null,
+  },
+  juggling: {
+    label: 'JUGGLING',
+    aL: -30, aR: 30, aLdy: 0, aRdy: 0,
+    eyeSq: 0, eyeDy: -1,
+    prop: 'juggle',
+    color: null,
+    spawn: null,
+  },
+  overheated: {
+    label: 'OVERHEAT',
+    aL: 0, aR: 30, aLdy: 4, aRdy: 0,
+    eyeSq: 0.7, eyeDy: 2,
+    prop: 'smoke',
+    color: null,
+    slump: true,
+    spawn: (t) => {
+      if (Math.random() < 0.12) emit(gx(7.5)+(Math.random()-.5)*8, gy(5)+Math.random()*4, {vx:(Math.random()-.5)*0.4, vy:-0.35, dc:0.012, sz:2.5, c:Math.random()<0.5?C.smoke:C.smoke2});
+    },
+  },
+  wizard: {
+    label: 'WIZARD',
+    aL: 20, aR: -120, aLdy: -2, aRdy: -3,
+    eyeSq: -0.3, eyeDy: -0.5,
+    prop: 'wizard',
+    color: null,
+    spawn: (t) => {
+      if (Math.random() < 0.11) {
+        const wx = gx(14.5), wy = gy(4);
+        emit(wx, wy, {vx:(Math.random()-.5)*1.5, vy:-1-Math.random()*0.8, dc:0.028, sz:2, c:Math.random()<0.5?C.magic:C.magic2, tp:'star'});
+      }
+    },
+  },
+  disconnected: {
+    label: 'OFFLINE',
+    aL: 0, aR: 0, aLdy: 0, aRdy: 0,
+    eyeSq: 0, eyeDy: 1.5,
+    prop: 'offline',
+    color: C.bodyDim,
+    spawn: null,
+  },
+  sweeping: {
+    label: 'SWEEPING',
+    aL: 80, aR: -30, aLdy: 0, aRdy: 0,
+    eyeSq: 0, eyeDy: 0,
+    prop: 'broom',
+    color: null,
+    sweepRock: true,
+    spawn: (t) => {
+      if (Math.random() < 0.15) emit(gx(1)+(Math.random()-.5)*6, gy(14.5), {vx:(Math.random()-.5)*0.8, vy:-0.4, dc:0.03, sz:1, c:'#aaa'});
+    },
+  },
+};
+
+// ─── Runtime anim state ──────────────────────────────────────────────
+let target = 'idle';
+const A = {
+  t: 0, bT: 0,             // global time, breathe time
+  blinkT: 10, nextBlink: 3,
+  eyeDx: 0, nextLook: 4, lookDx: 0,
+  aL: 0, aR: 0, aLdy: 0, aRdy: 0,
+  eyeSq: 0, eyeDy: 0,
+  prop: null, propO: 0,
+  color: C.body,
+  jitter: 0, jx: 0, jy: 0,
+  bounceY: 0, bounceV: 0,
+  headTilt: 0,
+  slump: 0,
+  sweepRock: 0,
+  armTypePh: 0,
+  jugPh: 0,
+};
+
+function lerp(a,b,t) { return a+(b-a)*t; }
+
+// ─── Build controls ──────────────────────────────────────────────────
+const ctrl = document.getElementById('ctrl');
+Object.entries(STATES).forEach(([k, v]) => {
+  const b = document.createElement('button');
+  b.className = 'btn'; b.textContent = v.label;
+  b.onclick = () => { setTarget(k); autoCycle = false; };
+  ctrl.appendChild(b);
+});
+
+function setTarget(name) {
+  if (!STATES[name]) return;
+  target = name;
+  document.getElementById('lbl').textContent = STATES[name].label;
+  document.querySelectorAll('.btn').forEach(b => b.classList.toggle('active', b.textContent === STATES[name].label));
+}
+setTarget('idle');
+
+// ─── Update ──────────────────────────────────────────────────────────
+let lastTs = 0;
+function update(ts) {
+  const dt = Math.min((ts - lastTs) / (1000/60), 3);
+  lastTs = ts;
+  A.t += dt;
+
+  const D = STATES[target];
+  const sp = 0.09 * dt;
+
+  // Lerp body params
+  A.aL    = lerp(A.aL,    D.aL,    sp);
+  A.aR    = lerp(A.aR,    D.aR,    sp);
+  A.aLdy  = lerp(A.aLdy,  D.aLdy,  sp);
+  A.aRdy  = lerp(A.aRdy,  D.aRdy,  sp);
+  A.eyeSq = lerp(A.eyeSq, D.eyeSq, sp);
+  A.eyeDy = lerp(A.eyeDy, D.eyeDy, sp);
+  A.jitter= lerp(A.jitter, D.jitter ?? 0, sp);
+  A.headTilt = lerp(A.headTilt, D.headTilt ? 0.08 : 0, sp*0.6);
+  A.slump = lerp(A.slump, D.slump ? 1 : 0, sp*0.5);
+  A.sweepRock = lerp(A.sweepRock, D.sweepRock ? 1 : 0, sp*0.6);
+
+  // Body color
+  const wantColor = D.color ?? C.body;
+  A.color = wantColor; // snap (both are hex strings, lerp not needed)
+
+  // Prop fade
+  const wantProp = D.prop ?? null;
+  if (wantProp !== A.prop) {
+    if (A.propO < 0.05) { A.prop = wantProp; }
+    A.propO = lerp(A.propO, wantProp ? 1 : 0, sp * 2);
+  } else {
+    A.propO = lerp(A.propO, wantProp ? 1 : 0, sp * 2);
+  }
+
+  // Breathing
+  A.bT += (D.breathSlow ? 0.016 : 0.03) * dt;
+
+  // Blink
+  A.blinkT += dt / 60;
+  A.nextBlink -= dt / 60;
+  if (A.nextBlink < 0) { A.nextBlink = 2 + Math.random() * 3.5; A.blinkT = 0; }
+
+  // Eye wander (only idle/thinking/disconnected)
+  A.nextLook -= dt / 60;
+  if (A.nextLook < 0) {
+    A.nextLook = 1.8 + Math.random() * 3;
+    A.lookDx = (Math.random()-.5) * 4;
+  }
+  const wantDx = ['idle','disconnected','sleeping'].includes(target) ? A.lookDx : 0;
+  A.eyeDx = lerp(A.eyeDx, wantDx, 0.04 * dt);
+
+  // Typing arm oscillation
+  if (Math.abs(A.aL) > 50) A.armTypePh += 0.45 * dt;
+
+  // Happy / notification bounce
+  if (D.bounce) {
+    A.bounceV += 0.4 * dt;
+    A.bounceY += A.bounceV * dt;
+    if (A.bounceY >= 0) { A.bounceY = 0; A.bounceV = -((D.bounceStr ?? 1.8) + Math.random() * 0.8); }
+  } else {
+    A.bounceY = lerp(A.bounceY, 0, 0.1 * dt);
+    if (!D.bounce) A.bounceV = 0;
+  }
+
+  // Jitter
+  if (A.jitter > 0.1) { A.jx = (Math.random()-.5)*A.jitter*2; A.jy = (Math.random()-.5)*A.jitter; }
+  else { A.jx = lerp(A.jx, 0, 0.15*dt); A.jy = lerp(A.jy, 0, 0.15*dt); }
+
+  // Juggling
+  A.jugPh += 0.07 * dt;
+
+  // Particles
+  if (D.spawn && parts.length < 40) D.spawn(A.t);
+  parts.forEach(p => p.tick(dt));
+  parts = parts.filter(p => p.life > 0);
+}
+
+// ─── Draw helpers ────────────────────────────────────────────────────
+function rect(x, y, w, h, c) { g.fillStyle = c; g.fillRect(Math.floor(x), Math.floor(y), w, h); }
+
+function drawClawd() {
+  const breathe = 1 + Math.sin(A.bT) * 0.014;
+  const bx = x => Math.floor(gx(x) + A.jx);
+  const by = y => Math.floor(gy(y) + A.jy - A.bounceY);
+
+  // Slump offset (overheated — body droops)
+  const slumpDy = A.slump * 3;
+
+  // Head tilt (confused)
+  const tiltAng = A.headTilt * Math.sin(A.t * 0.12);
+
+  // Shadow
+  rect(gx(2), gy(15.3), 11*S, 2, C.shadow);
+
+  // ── Legs (static) ──
+  rect(gx(3),  gy(13), S, S*2, A.color);
+  rect(gx(5),  gy(13), S, S*2, A.color);
+  rect(gx(9),  gy(13), S, S*2, A.color);
+  rect(gx(11), gy(13), S, S*2, A.color);
+
+  // ── Body group ──────────────────────────────────────────
+  // Torso (with breathing scale on height)
+  const tH = Math.round(7 * S * breathe);
+  const tY = by(6) + (7*S - tH) + slumpDy;
+  rect(bx(2), tY, 11*S, tH, A.color);
+
+  // Left arm (with rotation + typing oscillation)
+  const aLRad = A.aL * Math.PI / 180;
+  const aRRad = A.aR * Math.PI / 180;
+  const typeWobbleL = Math.abs(A.aL) > 50 ? Math.sin(A.armTypePh) * 18 * Math.PI/180 : 0;
+  const typeWobbleR = Math.abs(A.aR) > 50 ? Math.sin(A.armTypePh + Math.PI) * 18 * Math.PI/180 : 0;
+  const sweepWave = A.sweepRock * Math.sin(A.t * 0.18) * 20 * Math.PI/180;
+
+  g.save();
+  g.translate(bx(1), by(10) + A.aLdy + slumpDy);
+  g.rotate(aLRad + typeWobbleL + sweepWave);
+  rect(-S, -S, S*2, S*2, A.color);
+  g.restore();
+
+  g.save();
+  g.translate(bx(14), by(10) + A.aRdy + slumpDy);
+  g.rotate(aRRad + typeWobbleR);
+  rect(-S, -S, S*2, S*2, A.color);
+  g.restore();
+
+  // ── Eyes ──────────────────────────────────────────────
+  const blinkSc = (A.blinkT < 0.07 && A.eyeSq < 0.95) ? 0.05 : 1;
+  const eyeH = Math.max(1, Math.round(S*2 * (1 - A.eyeSq) * blinkSc));
+  const edx = Math.floor(A.eyeDx);
+  const edy = Math.floor(A.eyeDy * S);
+  const ey = by(8) + (S*2 - eyeH) + edy + slumpDy;
+  const eyeC = target === 'disconnected' ? C.eyeSad : C.eye;
+
+  // Head tilt applied via canvas rotation for whole upper body? Too complex — just offset eyes slightly
+  rect(bx(4) + edx, ey, S, eyeH, eyeC);
+  rect(bx(10) + edx, ey, S, eyeH, eyeC);
+
+  // ── Props ──────────────────────────────────────────────
+  const po = A.propO;
+  if (po > 0.02) {
+    g.globalAlpha = po;
+
+    if (A.prop === 'laptop') {
+      const lx = bx(2) - 1, ly = by(9.5) + slumpDy;
+      rect(lx - 2, ly + 17, 38, 4, C.laptop);
+      rect(lx, ly, 35, 19, C.laptopS);
+      const glow = 0.4 + 0.6*Math.sin(A.t*0.15);
+      g.globalAlpha = po * glow * 0.5;
+      rect(lx + 13, ly + 6, 7, 7, C.data);
+      g.globalAlpha = po;
+      rect(lx + 15, ly + 8, 3, 3, '#fff');
+    }
+
+    if (A.prop === 'bubble') {
+      const bob = Math.sin(A.t * 0.1) * 1.5;
+      const bx2 = bx(7.5) + 2, by2 = gy(-2) + bob;
+      rect(bx2 - 18, by2 - 18, 36, 26, C.bubble);
+      // pixel corners
+      g.fillStyle = C.sky1;
+      g.fillRect(bx2 - 18, by2 - 18, 3, 3); g.fillRect(bx2 + 15, by2 - 18, 3, 3);
+      g.fillRect(bx2 - 18, by2 + 5, 3, 3);  g.fillRect(bx2 + 15, by2 + 5, 3, 3);
+      // stem dots
+      rect(bx2 - 1, by2 + 8, 3, 3, C.bubble);
+      rect(bx2, by2 + 13, 2, 2, C.bubble);
+      // thinking dots
+      const dp = (A.t * 0.05) % 1;
+      for (let i = 0; i < 3; i++) {
+        const vis = ((dp + i * 0.33) % 1) > 0.3;
+        if (vis) rect(bx2 - 6 + i * 6, by2 - 6, 3, 3, '#888');
+      }
+    }
+
+    if (A.prop === 'zzz') {
+      const zBase = (A.t * 0.035) % 1;
+      for (let i = 0; i < 3; i++) {
+        const p = (zBase + i * 0.33) % 1;
+        const zx = bx(11) + i * 3 + p * 5;
+        const zy = gy(2) - p * 22;
+        g.globalAlpha = po * (1 - p) * 0.9;
+        const sz = Math.max(2, (3 - i) * 2);
+        g.fillStyle = C.zzz;
+        g.fillRect(Math.floor(zx), Math.floor(zy), sz, 1);
+        g.fillRect(Math.floor(zx + sz - 1), Math.floor(zy + 1), 1, sz-2);
+        g.fillRect(Math.floor(zx), Math.floor(zy + sz - 1), sz, 1);
+      }
+      g.globalAlpha = po;
+    }
+
+    if (A.prop === 'qmarks') {
+      // Floating ? marks
+      for (let i = 0; i < 2; i++) {
+        const p = ((A.t * 0.03) + i * 0.5) % 1;
+        const qx = bx(9 + i * 3) + p * 3;
+        const qy = gy(2) - p * 18;
+        g.globalAlpha = po * (1 - p);
+        g.fillStyle = C.qmark;
+        // pixel ? shape (from SVG: 2×1, 1×1, skip, 1×1, 1×1 with gaps)
+        g.fillRect(Math.floor(qx), Math.floor(qy), 2, 1);
+        g.fillRect(Math.floor(qx+1), Math.floor(qy+1), 1, 1);
+        g.fillRect(Math.floor(qx+1), Math.floor(qy+2), 1, 1);
+        g.fillRect(Math.floor(qx), Math.floor(qy+3), 1, 1);
+        g.fillRect(Math.floor(qx), Math.floor(qy+5), 1, 1);
+      }
+      g.globalAlpha = po;
+    }
+
+    if (A.prop === 'alert') {
+      // Red ! mark popping above head
+      const bob = Math.abs(Math.sin(A.t * 0.2)) * 3;
+      const ax = bx(8), ay = gy(-1) - bob;
+      g.fillStyle = C.alert;
+      g.fillRect(Math.floor(ax), Math.floor(ay), 3, 8);
+      g.fillRect(Math.floor(ax), Math.floor(ay+10), 3, 3);
+    }
+
+    if (A.prop === 'juggle') {
+      // 3 arcing balls
+      const jAmp = 16, jW = 18;
+      for (let i = 0; i < 3; i++) {
+        const ph = A.jugPh + i * (Math.PI * 2 / 3);
+        const jx2 = gx(7.5) + Math.sin(ph) * jW;
+        const jy2 = gy(3) - Math.abs(Math.sin(ph * 0.5)) * jAmp;
+        g.fillStyle = C.juggle[i];
+        g.fillRect(Math.floor(jx2) - 2, Math.floor(jy2) - 2, 4, 4);
+      }
+    }
+
+    if (A.prop === 'smoke') {
+      // already handled by particles, just draw fan arm indicator
+      // fan arm oscillation already in aR rotation
+    }
+
+    if (A.prop === 'wizard') {
+      // Wizard hat above head
+      const wx = bx(7.5) - 9, wy = gy(3);
+      // Hat brim
+      g.fillStyle = C.hatBrim;
+      g.fillRect(Math.floor(wx - 2), Math.floor(wy + 8), 22, 3);
+      // Hat body (triangle-ish via rects)
+      g.fillStyle = C.hat;
+      g.fillRect(Math.floor(wx + 4), Math.floor(wy), 10, 9);
+      g.fillRect(Math.floor(wx + 6), Math.floor(wy - 5), 6, 6);
+      g.fillRect(Math.floor(wx + 7), Math.floor(wy - 9), 4, 5);
+      // Star on hat
+      g.fillStyle = C.magic2;
+      g.fillRect(Math.floor(wx + 8), Math.floor(wy + 3), 2, 2);
+
+      // Wand (right arm extended)
+      const wandX = bx(15), wandY = by(7);
+      rect(wandX, wandY, 2, 14, C.wand);
+      rect(wandX, wandY - 2, 2, 3, C.wandTip);
+    }
+
+    if (A.prop === 'offline') {
+      // Grey out + sad face (handled by eye color + body dim color)
+      // Floating ? mark slowly
+      const p = (A.t * 0.018) % 1;
+      g.globalAlpha = po * (0.3 + Math.sin(A.t * 0.05) * 0.3);
+      g.fillStyle = '#557';
+      const qx = bx(9), qy = gy(-1) - p * 10;
+      g.fillRect(Math.floor(qx), Math.floor(qy), 2, 1);
+      g.fillRect(Math.floor(qx+1), Math.floor(qy+1), 1, 1);
+      g.fillRect(Math.floor(qx+1), Math.floor(qy+2), 1, 1);
+      g.fillRect(Math.floor(qx), Math.floor(qy+3), 1, 1);
+      g.fillRect(Math.floor(qx), Math.floor(qy+5), 1, 1);
+    }
+
+    if (A.prop === 'broom') {
+      // Broom in left arm direction
+      const sweepX = Math.sin(A.t * 0.18) * 6;
+      const brx = bx(-1) + sweepX, bry = by(9);
+      // handle
+      rect(brx, bry, 2, 22, C.broom);
+      // bristles
+      rect(brx - 4, bry + 20, 14, 4, C.broomHead);
+      rect(brx - 2, bry + 24, 10, 2, C.broomHead);
+    }
+
+    g.globalAlpha = 1;
+  }
+}
+
+// ─── Scene ───────────────────────────────────────────────────────────
+function drawScene() {
+  rect(0, 0, W, 75, C.sky1);
+  rect(0, 75, W, 45, C.sky2);
+
+  for (const s of stars) {
+    s.tw += s.sp;
+    g.globalAlpha = 0.3 + 0.7 * Math.abs(Math.sin(s.tw));
+    rect(Math.floor(s.x), Math.floor(s.y), s.s, s.s, s.c);
+  }
+  g.globalAlpha = 1;
+
+  rect(0, FOOT_Y + 1, W, H - FOOT_Y - 1, C.ground);
+  rect(0, FOOT_Y + 1, W, 3, C.groundLine);
+  g.fillStyle = C.groundDash;
+  for (let x = 2; x < W; x += 8) g.fillRect(x, FOOT_Y + 1, 3, 2);
+}
+
+// ─── Loop ────────────────────────────────────────────────────────────
+function loop(ts) {
+  update(ts);
+  g.clearRect(0, 0, W, H);
+  drawScene();
+  parts.forEach(p => p.draw());
+  drawClawd();
+  ctx.clearRect(0, 0, 400, 300);
+  ctx.drawImage(buf, 0, 0, 400, 300);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(ts => { lastTs = ts; requestAnimationFrame(loop); });
+
+// ─── Auto cycle ──────────────────────────────────────────────────────
+const cycleOrder = Object.keys(STATES);
+let cycleIdx = 0;
+let autoCycle = true;
+setInterval(() => {
+  if (!autoCycle) return;
+  cycleIdx = (cycleIdx + 1) % cycleOrder.length;
+  setTarget(cycleOrder[cycleIdx]);
+}, 3500);
+</script>
+</body>
+</html>

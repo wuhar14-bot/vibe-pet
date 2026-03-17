@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Clawd · 咖啡馆</title>
+  <style>
+    body { background: #1a1208; display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; margin:0; }
+    canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
+    p { color: #4a3a28; font-size:11px; font-family:monospace; margin-top:8px; letter-spacing:3px; }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="400" height="300"></canvas>
+  <p>CLAWD · 咖啡馆</p>
+<script>
+'use strict';
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d'); ctx.imageSmoothingEnabled = false;
+const W=200, H=150;
+const buf=document.createElement('canvas'); buf.width=W; buf.height=H;
+const g=buf.getContext('2d'); g.imageSmoothingEnabled=false;
+
+const S=3, FOOT_Y=119;
+const CX=Math.floor(110-7.5*S), CY=FOOT_Y-15*S;
+const gx=x=>CX+x*S, gy=y=>CY+y*S;
+const C={body:'#DE886D',eye:'#000000',shadow:'rgba(0,0,0,0.4)'};
+function rect(x,y,w,h,c){ g.fillStyle=c; g.fillRect(Math.floor(x),Math.floor(y),w,h); }
+
+const P={
+  wall:'#3a2010', wallM:'#4a2a18', wallL:'#5a3825',
+  floor0:'#221208', floor1:'#2e1a0c', floor2:'#3a2212',
+  counter:'#7a5030', counterH:'#9a6840', counterT:'#b07840',
+  winFrame:'#b89050', winFrameD:'#907030',
+  winSky0:'#6ab0e8', winSky1:'#90c8f0',
+  sun:'#f8d840', sunG:'#f8c020',
+  cloud:'#f0f4f8', cloudS:'#d8e4f0',
+  bird:'#404848',
+  mugB:'#e8d8b8', mugC:'#5a2e10', mugH:'#d0c0a0',
+  steam:'#c8c4bc',
+  menu:'#d8c8a0', menuL:'#a09060',
+  lampG:'#f0c860', lampG2:'#e0a820',
+};
+
+let _s=61423; const rand=()=>{ _s=(_s*1664525+1013904223)&0x7fffffff; return _s/0x7fffffff; };
+
+const WX=6, WY=18, WW=68, WH=84;
+
+// Clouds outside window (3 drifting)
+const CLOUDS=[
+  {x:10, y:WY+8,  sp:0.05, w:18, h:5},
+  {x:45, y:WY+18, sp:0.03, w:14, h:4},
+  {x:25, y:WY+30, sp:0.07, w:20, h:5},
+];
+
+// Birds (simple V shapes drifting left)
+const BIRDS=[
+  {x:55, y:WY+12, sp:0.12},
+  {x:38, y:WY+22, sp:0.09},
+];
+
+// Steam wisps
+const STEAM=Array.from({length:5},()=>({
+  off:rand()*60, period:35+rand()*20, phase:rand()*Math.PI*2,
+}));
+
+let bT=0, blinkT=600, nextBlink=180, eyeDx=-3, lookDx=-3, nextLook=300;
+
+function drawClawd(dt, sipA){
+  bT+=0.03*dt; blinkT+=dt; nextBlink-=dt;
+  if(nextBlink<0){nextBlink=(2.5+Math.random()*4)*60;blinkT=0;}
+  nextLook-=dt;
+  if(nextLook<0){nextLook=(2+Math.random()*4)*60; lookDx=-1-Math.random()*3;}
+  eyeDx+=(lookDx-eyeDx)*0.03*dt;
+  const breathe=1+Math.sin(bT)*0.012;
+  rect(gx(2),gy(15.3),11*S,2,C.shadow);
+  rect(gx(3),gy(13),S,S*2,C.body); rect(gx(5),gy(13),S,S*2,C.body);
+  rect(gx(9),gy(13),S,S*2,C.body); rect(gx(11),gy(13),S,S*2,C.body);
+  const tH=Math.round(7*S*breathe), tY=Math.floor(gy(6))+(7*S-tH);
+  rect(gx(2),tY,11*S,tH,C.body);
+  // Left arm — 2 segments: shoulder + forearm resting on counter
+  rect(Math.floor(gx(0)),   Math.floor(gy(10)),   3, 3, C.body); // shoulder
+  rect(Math.floor(gx(0))-2, Math.floor(gy(11))+1, 6, 3, C.body); // forearm on counter
+  // Right arm — 2 staircase segments, raises toward mouth during sip
+  const sipProg = Math.max(0, Math.min(1, (-sipA-0.3)/0.65));
+  const s1X = Math.floor(gx(13));
+  const s1Y = Math.floor(gy(9)) - Math.round(sipProg*3); // shoulder lifts
+  rect(s1X, s1Y, 4, 3, C.body); // segment 1: upper arm
+  const s2X = s1X + 2 - Math.round(sipProg*2); // forearm shifts left as arm raises
+  const s2Y = s1Y - 3 - Math.round(sipProg*3); // forearm shifts up
+  rect(s2X, s2Y, 3, 3, C.body); // segment 2: forearm
+  // Coffee mug above forearm
+  const cupX = s2X-1, cupY = s2Y-9;
+  rect(cupX,   cupY,   7, 7, P.mugB);
+  rect(cupX+1, cupY+1, 5, 5, P.mugC);
+  rect(cupX+7, cupY+1, 2, 4, P.mugH);
+  rect(cupX,   cupY-1, 7, 2, P.mugH);
+  // Tongue when sipping
+  if(sipA < -0.6) rect(gx(7),Math.floor(gy(10))+1,3,3,'#e86090');
+  const blinkSc=blinkT<0.07*60?0.05:1, eyeH=Math.max(1,Math.round(S*2*blinkSc));
+  const edx=Math.floor(eyeDx), ey=Math.floor(gy(8))+(S*2-eyeH);
+  rect(gx(4)+edx,ey,S,eyeH,C.eye); rect(gx(10)+edx,ey,S,eyeH,C.eye);
+}
+
+function getCupWorld(sipA){
+  const sipProg = Math.max(0, Math.min(1, (-sipA-0.3)/0.65));
+  const s1Y = Math.floor(gy(9)) - Math.round(sipProg*3);
+  const s2X = Math.floor(gx(13)) + 2 - Math.round(sipProg*2);
+  const s2Y = s1Y - 3 - Math.round(sipProg*3);
+  return { x: s2X+2, y: s2Y-9 };
+}
+
+function drawScene(t, dt, sipA){
+  // Back wall
+  rect(0,0,W,FOOT_Y+1,P.wall);
+  rect(0,FOOT_Y-30,W,31,P.wallM);
+  rect(0,0,W,3,P.wallL);
+
+  // Warm lamp glow (upper right)
+  const flicker=0.94+0.06*Math.sin(t*7.3);
+  g.globalAlpha=flicker*0.14;
+  for(let r=40;r>0;r-=6){g.fillStyle=P.lampG2;g.fillRect(172-r,0,r*2,r);}
+  g.globalAlpha=flicker*0.6; rect(180,0,4,4,P.lampG);
+  g.globalAlpha=1;
+
+  // Window outer frame
+  rect(WX-3,WY-3,WW+6,WH+6,P.winFrameD);
+  rect(WX-1,WY-1,WW+2,WH+2,P.winFrame);
+  // Sky fill (daytime blue)
+  rect(WX,WY,WW,WH,P.winSky0);
+  rect(WX,WY,WW,30,P.winSky1);
+  // Window cross dividers
+  rect(WX,WY+WH/2-1,WW,3,P.winFrame);
+  rect(WX+WW/2-1,WY,3,WH,P.winFrame);
+
+  // Sun (upper right of window)
+  g.globalAlpha=0.3; rect(WX+48,WY+4,14,14,P.sunG); g.globalAlpha=1;
+  rect(WX+50,WY+5,10,10,P.sun);
+
+  // Clouds and birds — clipped to window area
+  g.save();
+  g.beginPath(); g.rect(WX, WY, WW, WH); g.clip();
+  for(const c of CLOUDS){
+    c.x -= c.sp*(dt/60)*60;
+    if(c.x < WX-c.w) c.x = WX+WW+2;
+    const cx=Math.floor(c.x), cy=Math.floor(c.y);
+    rect(cx,    cy+2,  c.w,   c.h,   P.cloud);
+    rect(cx+3,  cy,    c.w-6, c.h,   P.cloud);
+    rect(cx+2,  cy+3,  c.w-2, c.h-1, P.cloudS);
+  }
+
+  // Birds (V shapes)
+  for(const b of BIRDS){
+    b.x -= b.sp*(dt/60)*60;
+    if(b.x < WX-6) b.x = WX+WW+4;
+    const bx=Math.floor(b.x), by=Math.floor(b.y);
+    g.fillStyle=P.bird;
+    g.fillRect(bx-3,by,2,1); g.fillRect(bx+1,by,2,1);
+  }
+  g.restore(); // end window clip
+
+  // Floor (dark parquet)
+  rect(0,FOOT_Y+1,W,H-FOOT_Y-1,P.floor0);
+  for(let fx=0;fx<W;fx+=14){
+    rect(fx,FOOT_Y+1,13,4,P.floor1);
+    rect(fx+7,FOOT_Y+5,13,4,P.floor2);
+  }
+
+  // Counter top
+  rect(60,FOOT_Y-20,W-60,20,P.counter);
+  rect(60,FOOT_Y-22,W-60,4,P.counterT);
+  rect(60,FOOT_Y-20,W-60,3,P.counterH);
+
+  // Menu card on counter
+  rect(132,FOOT_Y-30,20,10,P.menu);
+  rect(133,FOOT_Y-28,18,1,P.menuL);
+  rect(133,FOOT_Y-26,14,1,P.menuL);
+  rect(133,FOOT_Y-24,16,1,P.menuL);
+
+  // Steam from cup
+  const cup=getCupWorld(sipA);
+  for(let i=0;i<STEAM.length;i++){
+    const s=STEAM[i];
+    const age=((t*60+s.off)%s.period)/s.period;
+    const sx=cup.x+Math.round(Math.sin(age*Math.PI*2+s.phase)*2);
+    const sy=cup.y-Math.round(age*10);
+    g.globalAlpha=(1-age)*0.55;
+    rect(sx,sy,2,2,P.steam);
+  }
+  g.globalAlpha=1;
+}
+
+let lastTs=0, t=0;
+function loop(ts){
+  const dt=Math.min((ts-lastTs)/(1000/60),3); lastTs=ts; t+=dt/60;
+  const sc=t%5;
+  const sipA = sc<1 ? -0.3-0.65*Math.sin(sc*Math.PI) : -0.3;
+  drawScene(t,dt,sipA);
+  drawClawd(dt,sipA);
+  ctx.drawImage(buf,0,0,W,H,0,0,400,300);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(ts=>{ lastTs=ts; requestAnimationFrame(loop); });
+</script>
+</body>
+</html>

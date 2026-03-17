@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Clawd Sprite Gallery</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0a0a14;
+      color: #ccc;
+      font-family: 'Courier New', monospace;
+      padding: 32px 24px;
+    }
+    h1 { color: #D77757; font-size: 20px; letter-spacing: 3px; margin-bottom: 4px; }
+    .sub { color: #445; font-size: 11px; margin-bottom: 32px; letter-spacing: 1px; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 16px;
+    }
+    .card {
+      background: #111;
+      border: 1px solid #222;
+      border-radius: 8px;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+    .card:hover { border-color: #D77757; }
+    .card img {
+      width: 100%;
+      height: 160px;
+      object-fit: cover;
+      display: block;
+      image-rendering: pixelated;
+    }
+    .card-info {
+      padding: 10px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .state-name { color: #D77757; font-size: 12px; font-weight: bold; letter-spacing: 1px; }
+    .state-desc { color: #446; font-size: 10px; margin-top: 2px; }
+    .badge {
+      font-size: 9px;
+      background: #1a1a2e;
+      color: #446;
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid #223;
+    }
+
+    .section-title {
+      color: #334;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin: 28px 0 12px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid #1a1a1a;
+    }
+
+    .color-strip {
+      display: flex; gap: 12px; align-items: center; margin-bottom: 28px; flex-wrap: wrap;
+    }
+    .swatch { display: flex; align-items: center; gap: 8px; }
+    .swatch-box { width: 24px; height: 24px; border-radius: 4px; border: 1px solid #333; }
+    .swatch-text { font-size: 10px; color: #556; }
+  </style>
+</head>
+<body>
+
+  <h1>🦀 CLAWD SPRITE GALLERY</h1>
+  <p class="sub">Official Claude Code Mascot · Source: github.com/marciogranzotto/clawd-tank</p>
+
+  <div class="color-strip">
+    <div class="swatch">
+      <div class="swatch-box" style="background:rgb(215,119,87);"></div>
+      <div class="swatch-text">clawd_body<br>rgb(215,119,87) / #D77757</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-box" style="background:#1a2a1a; border-color:#2a3a2a;"></div>
+      <div class="swatch-text">ground<br>#1a2a1a (dark green)</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-box" style="background:#080c18;"></div>
+      <div class="swatch-text">night sky<br>#080c18</div>
+    </div>
+  </div>
+
+  <div class="section-title">Idle &amp; Base States</div>
+  <div class="grid">
+    <div class="card">
+      <img src="clawd-idle.gif" alt="idle">
+      <div class="card-info">
+        <div>
+          <div class="state-name">IDLE</div>
+          <div class="state-desc">Standing, looking around</div>
+        </div>
+        <span class="badge">default</span>
+      </div>
+    </div>
+    <div class="card">
+      <img src="clawd-disconnected.gif" alt="disconnected">
+      <div class="card-info">
+        <div>
+          <div class="state-name">DISCONNECTED</div>
+          <div class="state-desc">No active session</div>
+        </div>
+        <span class="badge">offline</span>
+      </div>
+    </div>
+    <div class="card">
+      <img src="clawd-sleeping.gif" alt="sleeping">
+      <div class="card-info">
+        <div>
+          <div class="state-name">SLEEPING</div>
+          <div class="state-desc">Idle for a long time</div>
+        </div>
+        <span class="badge">zzz</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">Working States</div>
+  <div class="grid">
+    <div class="card">
+      <img src="clawd-typing.gif" alt="typing">
+      <div class="card-info">
+        <div>
+          <div class="state-name">TYPING</div>
+          <div class="state-desc">Write / Edit / Bash</div>
+        </div>
+        <span class="badge">tool</span>
+      </div>
+    </div>
+    <div class="card">
+      <img src="clawd-thinking.gif" alt="thinking">
+      <div class="card-info">
+        <div>
+          <div class="state-name">THINKING</div>
+          <div class="state-desc">Long reasoning / pause</div>
+        </div>
+        <span class="badge">tool</span>
+      </div>
+    </div>
+    <div class="card">
+      <img src="clawd-building.gif" alt="building">
+      <div class="card-info">
+        <div>
+          <div class="state-name">BUILDING</div>
+          <div class="state-desc">Running commands</div>
+        </div>
+        <span class="badge">tool</span>
+      </div>
+    </div>
+    <div class="card">
+      <img src="clawd-juggling.gif" alt="juggling">
+      <div class="card-info">
+        <div>
+          <div class="state-name">JUGGLING</div>
+          <div class="state-desc">Multi-step tasks</div>
+        </div>
+        <span class="badge">tool</span>
+      </div>
+    </div>
+    <div class="card">
+      <img src="clawd-sweeping.gif" alt="sweeping">
+      <div class="card-info">
+        <div>
+          <div class="state-name">SWEEPING</div>
+          <div class="state-desc">Cleanup / refactor</div>
+        </div>
+        <span class="badge">tool</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">Reaction States</div>
+  <div class="grid">
+    <div class="card">
+      <img src="clawd-happy.gif" alt="happy">
+      <div class="card-info">
+        <div>
+          <div class="state-name">HAPPY</div>
+          <div class="state-desc">Task completed 🎉</div>
+        </div>
+        <span class="badge">reaction</span>
+      </div>
+    </div>
+    <div class="card">
+      <img src="clawd-notification.gif" alt="notification">
+      <div class="card-info">
+        <div>
+          <div class="state-name">NOTIFICATION</div>
+          <div class="state-desc">New message / alert</div>
+        </div>
+        <span class="badge">reaction</span>
+      </div>
+    </div>
+    <div class="card">
+      <img src="clawd-confused.gif" alt="confused">
+      <div class="card-info">
+        <div>
+          <div class="state-name">CONFUSED</div>
+          <div class="state-desc">Error / unexpected input</div>
+        </div>
+        <span class="badge">reaction</span>
+      </div>
+    </div>
+  </div>
+
+  <p style="color:#223; font-size:10px; margin-top:32px; text-align:center;">
+    vibe-pet project · 2026-03-16 · sprites from clawd-tank (MIT)
+  </p>
+
+</body>
+</html>

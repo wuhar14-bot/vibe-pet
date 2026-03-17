@@ -1,0 +1,58 @@
+{
+  "_comment": "Vibe Animation — 官方色板。所有动画必须从这里取色，超出限制前先查这里。",
+
+  "clawd": {
+    "body":      "#DE886D",
+    "bodyDim":   "#8B4A38",
+    "eye":       "#000000",
+    "eyeSad":    "#334455",
+    "claw":      "#C85C3A",
+    "belly":     "#F0D090"
+  },
+
+  "night": {
+    "sky_deep":  "#07090f",
+    "sky_mid":   "#0d1420",
+    "sky_horizon":"#111b2e",
+    "tree_dark": "#0a2e14",
+    "tree_mid":  "#133d1e",
+    "tree_light":"#1e5c2a",
+    "tree_bright":"#2d7a3a",
+    "tree_tip":  "#40a050",
+    "trunk":     "#2a1a0a",
+    "trunk_hi":  "#3d2812",
+    "ground":    "#07100a",
+    "grass":     "#0f2414",
+    "star":      "#e8f0f8",
+    "star_dim":  "#c0d4e0",
+    "firefly":   "#d8e840",
+    "firefly_hi":"#e8f860"
+  },
+
+  "day": {
+    "sky_top":   "#1a2a6e",
+    "sky_low":   "#4a7abf",
+    "cloud":     "#ddeeff",
+    "sun":       "#ffe060",
+    "water_deep":"#1a4a7a",
+    "water_mid": "#2d6a9a",
+    "water_foam":"#8ab8d8",
+    "sand":      "#d4b080",
+    "sand_wet":  "#b09060"
+  },
+
+  "ui": {
+    "black":     "#111111",
+    "white":     "#f0f0f0",
+    "red":       "#d62828",
+    "orange":    "#e86a33",
+    "yellow":    "#f0c040",
+    "green":     "#2d8a3e",
+    "teal":      "#2d8a7a",
+    "blue":      "#2d5a8a",
+    "purple":    "#6a2d8a",
+    "pink":      "#d46a8a",
+    "brown":     "#8a5a2d",
+    "gray":      "#778899"
+  }
+}

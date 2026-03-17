@@ -1,0 +1,12 @@
+{
+  "name": "vibe-pet-live",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node watcher.js"
+  },
+  "dependencies": {
+    "chokidar": "^3.6.0",
+    "ws": "^8.18.0"
+  }
+}

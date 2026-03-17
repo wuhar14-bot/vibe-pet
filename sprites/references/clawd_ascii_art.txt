@@ -1,0 +1,25 @@
+# Official Clawd — Claude Code Mascot ASCII Art
+# Source: @anthropic-ai/claude-code/cli.js
+# Extracted: 2026-03-16
+
+## Normal Terminal Version (aF8)
+ ▐▛███▜▌
+▝▜█████▛▘
+  ▘▘ ▝▝  
+
+## Apple Terminal Version (eqz)
+▗ ▗   ▖ ▖
+ [7 filled]
+▘▘ ▝▝
+
+## Colors
+clawd_body       = rgb(215, 119, 87)  = #D77757
+clawd_background = rgb(0, 0, 0)       = #000000 (black)
+
+## Notes
+- clawd_body is the orange-salmon color used for the crab outline/legs
+- The body area uses clawd_body as fg on clawd_background (black) bg
+  creating filled black squares with orange block borders
+- The Apple Terminal version uses inverse (bg:clawd_body) for a 
+  rounder look without the ▛▜▝▘ quarter-block characters
+- Official name: "Clawd" (Claude + Claw pun, 🦀)

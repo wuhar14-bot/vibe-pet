@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title><!-- 场景名称 --></title>
+  <style>
+    body {
+      background: #07090f;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
+    p { color: #334455; font-size: 11px; font-family: monospace; margin-top: 8px; letter-spacing: 2px; }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="400" height="300"></canvas>
+  <p>vibe animation · <!-- 标签 --></p>
+
+<script>
+'use strict';
+
+// ─── Canvas 2× pixel setup ─────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+
+const W = 200, H = 150;                    // 内部低分辨率尺寸
+const buf = document.createElement('canvas');
+buf.width = W; buf.height = H;
+const g = buf.getContext('2d');
+g.imageSmoothingEnabled = false;
+
+// ─── Palette (从 palette.json 取色，≤16 种) ───────────────────────────
+const P = {
+  bg:   '#07090f',
+  // ... 按场景补充
+};
+
+// ─── 精灵网格辅助 (S = 像素格大小) ──────────────────────────────────────
+const S = 3;
+// 用法：g.fillRect(gx(col), gy(row), S, S)
+// 需要先定义 gx/gy 相对于角色锚点
+
+// ─── 随机数生成器（固定种子，保证每次相同） ──────────────────────────────
+let _seed = 12345;
+const rand = () => { _seed = (_seed * 1664525 + 1013904223) & 0x7fffffff; return _seed / 0x7fffffff; };
+
+// ─── 场景元素定义区 ────────────────────────────────────────────────────
+// TODO: 在此定义粒子、精灵帧、背景元素等
+
+// ─── 工具：fillRect 取整版 ─────────────────────────────────────────────
+const px = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(Math.floor(x), Math.floor(y), w, h); };
+
+// ─── 主循环 ────────────────────────────────────────────────────────────
+let last = 0, t = 0;
+function loop(ts) {
+  const dt = Math.min((ts - last) / 1000, 0.05);
+  last = ts;
+  t += dt;
+
+  // ── 清空背景 ──
+  g.fillStyle = P.bg;
+  g.fillRect(0, 0, W, H);
+
+  // ── TODO: 绘制场景 ──
+  // 推荐绘制顺序：背景 → 远景 → 中景 → 主角 → 前景粒子
+
+  // ── 上采样到 400×300 ──
+  ctx.drawImage(buf, 0, 0, W, H, 0, 0, 400, 300);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

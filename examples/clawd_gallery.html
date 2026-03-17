@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Clawd · 美术馆</title>
+  <style>
+    body { background: #0e0e10; display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; margin:0; }
+    canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
+    p { color: #282828; font-size:11px; font-family:monospace; margin-top:8px; letter-spacing:3px; }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="400" height="300"></canvas>
+  <p>CLAWD · 美术馆</p>
+<script>
+'use strict';
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;
+const W=200,H=150;
+const buf=document.createElement('canvas');buf.width=W;buf.height=H;
+const g=buf.getContext('2d');g.imageSmoothingEnabled=false;
+
+const S=3,FOOT_Y=119;
+const CX=Math.floor(68-7.5*S),CY=FOOT_Y-15*S;  // Clawd at x=68 (facing right, looking at painting)
+const gx=x=>CX+x*S,gy=y=>CY+y*S;
+const C={body:'#DE886D',eye:'#000000',shadow:'rgba(0,0,0,0.5)'};
+function rect(x,y,w,h,c){g.fillStyle=c;g.fillRect(Math.floor(x),Math.floor(y),w,h);}
+
+const P={
+  wall:'#d8d0c8',wall2:'#c8c0b8',wall3:'#b8b0a8',baseboard:'#8a8070',
+  floor0:'#2a2018',floor1:'#322818',floor2:'#3a3020',
+  frame1:'#6a5030',frame2:'#8a6840',
+  spot:'#f0f0e0',spotCone:'#e8e4d0',
+  // Painting 1 — abstract landscape
+  p1sky:'#4060a0',p1hill:'#406030',p1sun:'#e0c030',
+  // Painting 2 — abstract geometric
+  p2bg:'#f0e8d0',p2r:'#c03030',p2b:'#3050a0',p2y:'#d0b020',
+  label:'#505050',
+  plinth:'#a8a098',
+  sculpture:'#c0b090',sculptureD:'#907850',
+};
+
+let _s=33417;const rand=()=>{_s=(_s*1664525+1013904223)&0x7fffffff;return _s/0x7fffffff;};
+
+// Dust in spotlight
+const DUST=Array.from({length:12},()=>({
+  x:90+rand()*60,y:20+rand()*80,vx:(rand()-.5)*1.5,vy:-0.5-rand(),
+  life:rand(),maxLife:(4+rand()*5)*60,phase:rand()*Math.PI*2,
+}));
+function resetDust(d){d.x=90+rand()*60;d.y=FOOT_Y-10-rand()*60;d.vx=(rand()-.5)*1.5;d.vy=-0.4-rand()*0.8;d.life=0;d.maxLife=(4+rand()*6)*60;}
+
+let bT=0,blinkT=600,nextBlink=300,eyeDx=6,lookDx=6,nextLook=600; // Eyes biased right (looking at painting)
+function drawClawd(dt){
+  bT+=0.03*dt;blinkT+=dt;nextBlink-=dt;
+  if(nextBlink<0){nextBlink=(3+Math.random()*5)*60;blinkT=0;}  // slower blink — contemplating
+  nextLook-=dt;
+  if(nextLook<0){nextLook=(2+Math.random()*4)*60;lookDx=3+Math.random()*4;} // stays looking right
+  eyeDx+=(lookDx-eyeDx)*0.03*dt;
+  const breathe=1+Math.sin(bT)*0.010; // subtle breathing
+  rect(gx(2),gy(15.3),11*S,2,C.shadow);
+  rect(gx(3),gy(13),S,S*2,C.body);rect(gx(5),gy(13),S,S*2,C.body);
+  rect(gx(9),gy(13),S,S*2,C.body);rect(gx(11),gy(13),S,S*2,C.body);
+  const tH=Math.round(7*S*breathe),tY=Math.floor(gy(6))+(7*S-tH);
+  // Subtle body tilt — head swaying as Clawd contemplates
+  const tiltX=Math.floor(Math.sin(t*0.35)*2);
+  rect(gx(2)+tiltX,tY,11*S,tH,C.body);
+  // Left arm raised to chin — contemplating pose
+  g.save();g.translate(Math.floor(gx(1)+tiltX),Math.floor(gy(6)));g.rotate(-1.1);rect(-S,-S,S*2,S*2,C.body);g.restore();
+  // Right arm holds small catalog/booklet
+  g.save();g.translate(Math.floor(gx(14)),Math.floor(gy(11)));g.rotate(-0.3);
+  rect(-S,-S,S*2,S*2,C.body);
+  // Booklet in hand
+  rect(3,-8,8,11,'#f0eee8'); rect(4,-7,6,9,'#d8d4cc');
+  ['-5','-3','-1'].forEach(ly=>rect(5,+parseInt(ly),4,1,'#a0a098'));
+  g.restore();
+  const blinkSc=blinkT<0.07*60?0.05:1,eyeH=Math.max(1,Math.round(S*2*blinkSc));
+  const edx=Math.floor(eyeDx),ey=Math.floor(gy(8))+(S*2-eyeH);
+  rect(gx(4)+edx+tiltX,ey,S,eyeH,C.eye);rect(gx(10)+edx+tiltX,ey,S,eyeH,C.eye);
+}
+
+function drawScene(t,dt){
+  // Walls
+  rect(0,0,W,FOOT_Y+1,P.wall);
+  rect(0,FOOT_Y-25,W,26,P.wall2); // lower wall slightly darker
+  rect(0,0,W,3,P.wall3);          // ceiling strip
+
+  // Baseboard
+  rect(0,FOOT_Y-4,W,5,P.baseboard);
+
+  // Floor (dark parquet)
+  rect(0,FOOT_Y+1,W,H-FOOT_Y-1,P.floor0);
+  for(let fx=0;fx<W;fx+=12){
+    rect(fx,FOOT_Y+1,11,4,P.floor1);
+    rect(fx+6,FOOT_Y+5,11,4,P.floor2);
+  }
+
+  // ── Spotlight 1 (over painting on right) ──
+  const spot1x=130;
+  g.globalAlpha=0.12+0.04*Math.sin(t*0.3);
+  for(let r=0;r<50;r+=5){
+    g.fillStyle=P.spotCone;
+    g.fillRect(spot1x-r/2,0,r,r+5);
+  }
+  g.globalAlpha=0.4;rect(spot1x-2,0,4,3,P.spot);
+  g.globalAlpha=1;
+
+  // ── Spotlight 2 (over left painting) ──
+  const spot2x=20;
+  g.globalAlpha=0.10;
+  for(let r=0;r<45;r+=5) g.fillRect(spot2x-r/2,0,r,r+5);
+  g.globalAlpha=0.35;rect(spot2x-2,0,4,3,P.spot);
+  g.globalAlpha=1;
+
+  // ── Painting 1 — right wall, landscape ──
+  rect(108,22,42,36,P.frame1);rect(110,24,38,32,P.frame2);
+  // Canvas
+  rect(112,26,34,28,P.p1sky);
+  rect(112,40,34,14,P.p1hill);
+  rect(120,30,6,6,P.p1sun);
+  // Hills detail
+  for(let hx=0;hx<34;hx+=4) rect(112+hx,38+Math.sin(hx*0.5)*2,4,3,P.p1hill);
+  // Label
+  rect(120,60,18,5,P.label);
+
+  // ── Painting 2 — left wall, geometric ──
+  rect(4,30,34,30,P.frame1);rect(6,32,30,26,P.frame2);
+  rect(8,34,26,22,P.p2bg);
+  rect(10,35,8,8,P.p2r);rect(22,37,8,8,P.p2b);
+  rect(16,41,5,12,P.p2y);rect(10,44,6,6,P.p2b);
+  // Label
+  rect(10,62,18,5,P.label);
+
+  // ── Small sculpture on plinth (far right) ──
+  rect(178,FOOT_Y-28,14,28,P.plinth);
+  rect(176,FOOT_Y-28,18,4,P.plinth);  // plinth top
+  rect(180,FOOT_Y-50,10,22,P.sculpture); // abstract pillar
+  rect(178,FOOT_Y-52,14,4,P.sculptureD); // top cap
+  rect(182,FOOT_Y-46,6,3,P.sculptureD); // detail notch
+
+  // ── Dust motes in spotlights ──
+  for(const d of DUST){
+    d.life+=dt;if(d.life>=d.maxLife){resetDust(d);continue;}
+    d.x+=d.vx*(dt/60);d.y+=d.vy*(dt/60);
+    const inSpot=d.x>100&&d.x<160;
+    if(!inSpot)continue;
+    const alpha=Math.sin((d.life/d.maxLife)*Math.PI)*0.4*(0.5+0.5*Math.sin(t*1.5+d.phase));
+    if(alpha>0.05){g.globalAlpha=alpha;rect(Math.floor(d.x),Math.floor(d.y),1,1,'#d0c8b0');g.globalAlpha=1;}
+  }
+}
+
+let lastTs=0,t=0;
+function loop(ts){
+  const dt=Math.min((ts-lastTs)/(1000/60),3);lastTs=ts;t+=dt/60;
+  drawScene(t,dt);
+  drawClawd(dt);
+  ctx.drawImage(buf,0,0,W,H,0,0,400,300);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(ts=>{lastTs=ts;requestAnimationFrame(loop);});
+</script>
+</body>
+</html>

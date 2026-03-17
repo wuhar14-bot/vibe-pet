@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Clawd · 图书馆</title>
+  <style>
+    body { background: #1a1208; display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; margin:0; }
+    canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
+    p { color: #3a2a14; font-size:11px; font-family:monospace; margin-top:8px; letter-spacing:3px; }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="400" height="300"></canvas>
+  <p>CLAWD · 图书馆</p>
+<script>
+'use strict';
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d'); ctx.imageSmoothingEnabled = false;
+const W = 200, H = 150;
+const buf = document.createElement('canvas'); buf.width=W; buf.height=H;
+const g = buf.getContext('2d'); g.imageSmoothingEnabled = false;
+
+// Grid — Clawd centered at x=100
+const S = 3, FOOT_Y = 119;
+const CX = Math.floor(100 - 7.5*S), CY = FOOT_Y - 15*S;
+const gx = x => CX + x*S, gy = y => CY + y*S;
+const C = { body:'#DE886D', eye:'#000000', shadow:'rgba(0,0,0,0.5)' };
+function rect(x,y,w,h,c){ g.fillStyle=c; g.fillRect(Math.floor(x),Math.floor(y),w,h); }
+
+// Palette
+const P = {
+  wall:'#2a1e0e', wall2:'#352510', floor:'#1a1008', floor2:'#241608',
+  shelf:'#4a3018', shelf2:'#5a3c20', book1:'#8b2020', book2:'#205080',
+  book3:'#206040', book4:'#806020', book5:'#602080', book6:'#c08030',
+  table:'#5a3820', table2:'#6a4828', lamp:'#e8c060', lampGlow:'#f0d880',
+  dust:'#c8a870', paper:'#e8d8b0',
+};
+
+let _s=42191; const rand=()=>{ _s=(_s*1664525+1013904223)&0x7fffffff; return _s/0x7fffffff; };
+
+// Dust motes
+const DUST = Array.from({length:18},()=>({
+  x:rand()*W, y:20+rand()*(FOOT_Y-30),
+  vx:(rand()-.5)*2, vy:-1-rand()*1.5,
+  life:rand(), maxLife:(3+rand()*4)*60, phase:rand()*Math.PI*2,
+}));
+function resetDust(d){ d.x=60+rand()*80; d.y=FOOT_Y-20-rand()*30; d.vx=(rand()-.5)*2; d.vy=-0.8-rand()*1.2; d.life=0; d.maxLife=(3+rand()*5)*60; }
+
+// Clawd idle state
+let bT=0, blinkT=600, nextBlink=180, eyeDx=0, lookDx=0, nextLook=240;
+function drawClawd(dt) {
+  bT+=0.03*dt; blinkT+=dt; nextBlink-=dt;
+  if(nextBlink<0){ nextBlink=(2+Math.random()*3.5)*60; blinkT=0; }
+  nextLook-=dt;
+  if(nextLook<0){ nextLook=(1.8+Math.random()*3)*60; lookDx=(Math.random()-.5)*4; }
+  eyeDx+=(lookDx-eyeDx)*0.04*dt;
+  const breathe=1+Math.sin(bT)*0.014;
+  rect(gx(2),gy(15.3),11*S,2,C.shadow);
+  rect(gx(3),gy(13),S,S*2,C.body); rect(gx(5),gy(13),S,S*2,C.body);
+  rect(gx(9),gy(13),S,S*2,C.body); rect(gx(11),gy(13),S,S*2,C.body);
+  const tH=Math.round(7*S*breathe), tY=Math.floor(gy(6))+(7*S-tH);
+  rect(gx(2),tY,11*S,tH,C.body);
+  // ── Open book (held in front, between torso and arms) ──
+  const bkX=Math.floor(gx(2)), bkY=Math.floor(gy(13));
+  const pageFlipCycle=Math.floor(t*0.18)%12;
+  const pc=pageFlipCycle===0?'#d0b870':pageFlipCycle===1?'#c8b060':'#e8d8b0';
+  rect(bkX,    bkY, 14, 10, pc);           // left page
+  rect(bkX+15, bkY, 14, 10, pc);           // right page
+  rect(bkX+13, bkY,  3, 10, P.shelf2);     // spine
+  [2,4,6].forEach(ly=>{
+    rect(bkX+1, bkY+ly,11,1,'#b8a878');
+    rect(bkX+16,bkY+ly,11,1,'#b8a878');
+  });
+  // Arms inward — holding the book
+  g.save();g.translate(Math.floor(gx(1)), Math.floor(gy(10)));g.rotate( 0.5);rect(-S,-S,S*2,S*2,C.body);g.restore();
+  g.save();g.translate(Math.floor(gx(14)),Math.floor(gy(10)));g.rotate(-0.5);rect(-S,-S,S*2,S*2,C.body);g.restore();
+  const blinkSc=blinkT<0.07*60?0.05:1, eyeH=Math.max(1,Math.round(S*2*blinkSc));
+  const edx=Math.floor(eyeDx), ey=Math.floor(gy(8))+(S*2-eyeH)+2; // +2 = looking down
+  rect(gx(4)+edx,ey,S,eyeH,C.eye); rect(gx(10)+edx,ey,S,eyeH,C.eye);
+}
+
+function drawScene(t, dt) {
+  // Back wall
+  rect(0,0,W,FOOT_Y+1,P.wall);
+  rect(0,30,W,4,P.wall2); // cornice
+
+  // Bookshelf — back wall, two sections
+  const drawShelf = (sx) => {
+    rect(sx,35,52,80,P.shelf);
+    rect(sx,35,52,4,P.shelf2); rect(sx,59,52,3,P.shelf2); rect(sx,82,52,3,P.shelf2);
+    // book spines (6 per shelf, 3 shelves)
+    const books = [P.book1,P.book2,P.book3,P.book4,P.book5,P.book6];
+    [37,60,83].forEach((by2,si)=>{
+      let bx2=sx+2;
+      books.forEach((bc,bi)=>{
+        const w=6+((si+bi)%3)*2, h=18+((bi*3+si)%5)*2;
+        rect(bx2,by2+1,w,h,bc); bx2+=w+1;
+      });
+    });
+  };
+  drawShelf(8); drawShelf(140);
+
+  // Lamp (upper right) — warm glow
+  const lampFlicker=0.92+0.08*Math.sin(t*8.3+0.5);
+  g.globalAlpha=lampFlicker*0.18;
+  for(let r=28;r>0;r-=4){ g.fillStyle=P.lampGlow; g.fillRect(148-r,18-r,r*2,r*2); }
+  g.globalAlpha=1;
+  rect(158,14,6,22,P.shelf2); rect(148,10,26,8,P.shelf);
+  rect(152,36,18,4,P.shelf2);
+
+  // Reading table
+  rect(62,FOOT_Y-8,76,8,P.table); rect(60,FOOT_Y-10,80,4,P.table2);
+  // Book on table (open)
+  rect(74,FOOT_Y-13,22,5,P.paper); rect(85,FOOT_Y-13,1,5,'#999');
+  rect(74,FOOT_Y-14,11,1,'#ccc'); rect(87,FOOT_Y-14,9,1,'#ccc');
+
+  // Floor
+  rect(0,FOOT_Y+1,W,H-FOOT_Y-1,P.floor);
+  rect(0,FOOT_Y+1,W,3,P.floor2);
+  for(let fx=4;fx<W;fx+=16) rect(fx,FOOT_Y+1,1,H-FOOT_Y-1,P.floor2);
+
+  // Dust motes (near lamp)
+  for(const d of DUST){
+    d.life+=dt; if(d.life>=d.maxLife){ resetDust(d); continue; }
+    d.x+=d.vx*(dt/60); d.y+=d.vy*(dt/60);
+    const alpha=Math.sin((d.life/d.maxLife)*Math.PI)*0.5*(0.4+0.6*Math.abs(Math.sin(t*2+d.phase)));
+    if(alpha>0.05){ g.globalAlpha=alpha; rect(Math.floor(d.x),Math.floor(d.y),1,1,P.dust); g.globalAlpha=1; }
+  }
+}
+
+let lastTs=0, t=0;
+function loop(ts){
+  const dt=Math.min((ts-lastTs)/(1000/60),3); lastTs=ts; t+=dt/60;
+  drawScene(t,dt);
+  drawClawd(dt);
+  ctx.drawImage(buf,0,0,W,H,0,0,400,300);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(ts=>{ lastTs=ts; requestAnimationFrame(loop); });
+</script>
+</body>
+</html>
