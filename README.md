@@ -1,7 +1,7 @@
 # 🐾 Vibe Pet
 
 <p align="center">
-  <img src="docs/crab.gif" alt="vibe-pet crab" width="400">
+  <img src="docs/clawd.gif" alt="vibe-pet" width="400">
 </p>
 
 A pixel-art companion that lives in your browser and reacts to what Claude Code is doing — in real time.
