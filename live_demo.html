@@ -9,12 +9,15 @@
       background: #06060f;
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
-      min-height: 100vh;
+      height: 100vh; overflow: hidden;
       font-family: 'Courier New', monospace;
     }
     #panels {
-      display: flex; flex-wrap: wrap;
-      gap: 24px; justify-content: center; align-items: center;
+      display: grid;
+      grid-template-columns: auto;
+      gap: 24px;
+      justify-content: center;
+      justify-items: center;
       padding: 24px;
     }
     .panel {
@@ -75,7 +78,7 @@ const C = {
 
 // ─── State definitions ────────────────────────────────────────────────
 const STATES = {
-  idle:         { label:'IDLE',     aL:0,   aR:0,   aLdy:0,  aRdy:0,  eyeSq:0,   eyeDy:0,   prop:null,    color:null,        spawn:null },
+  idle:         { label:'THINKING', aL:0,   aR:0,   aLdy:0,  aRdy:0,  eyeSq:0,   eyeDy:-1,  prop:'bubble', color:null, spawn:null },
   typing:       { label:'TYPING',   aL:88,  aR:-88, aLdy:0,  aRdy:0,  eyeSq:0.5, eyeDy:0,   prop:'laptop', color:null, jitter:0.5,
     spawn: (g2,A,t) => { if (Math.random()<0.2) spawnP(g2,A, gx(7.5)+(Math.random()-.5)*14, gy(11), {vy:-0.55,dc:0.022,sz:1.5,c:C.data}); }
   },
@@ -488,19 +491,38 @@ class SessionPanel {
 // ─── Panel manager ────────────────────────────────────────────────────
 const panels = new Map();   // id → SessionPanel
 
-function getScale(count) {
-  if (count <= 1) return 3;
-  if (count === 2) return 2.5;
-  if (count === 3) return 2;
-  if (count === 4) return 1.8;
-  return 1.4;
+// Try every possible column count; pick the one that maximises panel scale
+// while fitting everything within the current window dimensions.
+function getBestLayout(count) {
+  const gap = 24, pad = 48, labelH = 52;
+  let best = { cols: 1, scale: 0 };
+  for (let cols = 1; cols <= count; cols++) {
+    const rows   = Math.ceil(count / cols);
+    const scaleW = (window.innerWidth  - (cols - 1) * gap - pad) / (cols * W);
+    const scaleH = (window.innerHeight - (rows - 1) * gap - pad - rows * labelH) / (rows * H);
+    const scale  = Math.min(3, Math.max(0.3, Math.min(scaleW, scaleH)));
+    if (scale > best.scale) best = { cols, scale };
+  }
+  return best;
 }
 
 function refreshScales() {
-  const count = panels.size;
-  const scale = getScale(count);
-  for (const p of panels.values()) p.setScale(scale);
+  const count    = panels.size;
+  const panelsEl = document.getElementById('panels');
   document.getElementById('no-sessions').style.display = count === 0 ? '' : 'none';
+  if (count === 0) return;
+
+  const { cols, scale } = getBestLayout(count);
+  panelsEl.style.gridTemplateColumns = `repeat(${cols}, auto)`;
+
+  // Centre lone orphan on last row when count isn't evenly divisible by cols
+  const panelList = [...panels.values()];
+  panelList.forEach((p, i) => {
+    const isOrphan = cols > 1 && count % cols !== 0 && i === count - 1;
+    p.el.style.gridColumn  = isOrphan ? `1 / span ${cols}` : '';
+    p.el.style.justifySelf = isOrphan ? 'center' : '';
+    p.setScale(scale);
+  });
 }
 
 function onSessionsUpdate(sessions) {
@@ -558,6 +580,7 @@ function connectWS() {
 }
 
 connectWS();
+window.addEventListener('resize', refreshScales);
 </script>
 </body>
 </html>

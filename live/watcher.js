@@ -49,7 +49,7 @@ class Session {
   setState(s) {
     if (s === this.state) return;
     this.state = s;
-    if (s === 'idle' || s === 'sleeping' || s === 'disconnected') {
+    if (s === 'idle' || s === 'sleeping' || s === 'disconnected' || s === 'happy' || s === 'notification') {
       this.detail = null;
       this.currentTool = null;
     }
@@ -78,7 +78,7 @@ class Session {
       if (names.some(n => n === 'Agent'))              { this.setState('juggling'); this.startSettle(); return; }
       if (this.toolWindow.length > 3)                  { this.setState('juggling'); this.startSettle(); return; }
       if (names.some(n => WRITE_TOOLS.has(n)))         { this.setState('typing');   this.startSettle(); return; }
-      if (names.some(n => SEARCH_TOOLS.has(n)))        { this.setState('thinking'); this.startSettle(); return; }
+      if (names.some(n => SEARCH_TOOLS.has(n)))        { this.setState('juggling'); this.startSettle(); return; }
       this.setState('typing'); this.startSettle();  // unknown tool → assume writing
       return;
     }
@@ -106,7 +106,7 @@ class Session {
     if (this.settleTimer) clearTimeout(this.settleTimer);
     this.settleTimer = setTimeout(() => {
       this.settleTimer = null;
-      if (['thinking','typing','juggling'].includes(this.state)) this.setState('idle');
+      if (['thinking','wizard','typing','juggling'].includes(this.state)) this.setState('idle');
     }, TOOL_SETTLE);
   }
 
@@ -196,6 +196,7 @@ const httpServer = createServer((req, res) => {
       try {
         const { tool, sessionId = 'main', title = null, detail = null } = JSON.parse(body);
         const id = sessionId || 'main';
+        if (byeSessions.has(id)) { console.log(`[hook] ${id} ignored (bye)`); res.writeHead(200); res.end('ok'); return; }
         const s  = getOrCreate(id, true);
         if (title && !s.title) s.title = title;   // set once, never overwrite
         if (detail) s.detail = detail;

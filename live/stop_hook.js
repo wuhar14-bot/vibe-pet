@@ -15,7 +15,8 @@ const WATCHER_PORT = 3722;
 
 // Keywords that trigger explicit sign-off (immediate removal)
 // Matches if message STARTS WITH a bye keyword (allows extra words like "bye close session")
-const BYE_PATTERNS = /^(bye|byebye|sign[\s-]?off|goodbye|再见|关窗|关闭|close\s+(?:session|window))(\s|[.!。]|$)/i;
+// Matches if message STARTS WITH a bye keyword, OR contains "pet close" / "pet off" anywhere
+const BYE_PATTERNS = /^(bye|byebye|sign[\s-]?off|goodbye|再见|关窗|关闭|close\s+(?:session|window))(\s|[.!。]|$)|pet\s+(close|off|bye|gone)/i;
 
 let raw = '';
 process.stdin.setEncoding('utf8');

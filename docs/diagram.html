@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vibe-Pet Architecture Diagram</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 40px;
+      background: #06060f;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
+    svg {
+      max-width: 100%;
+      height: auto;
+    }
+  </style>
+</head>
+<body>
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 520" width="860" height="520">
+  <defs>
+    <marker id="arr-blue" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,1 L6,3.5 L0,6 Z" fill="#2a4a8a"/>
+    </marker>
+    <marker id="arr-green" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,1 L6,3.5 L0,6 Z" fill="#2a6a3a"/>
+    </marker>
+    <marker id="arr-gray" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,1 L6,3.5 L0,6 Z" fill="#334"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="860" height="520" fill="#06060f"/>
+
+  <!-- ─── TOP SECTION LABEL ─────────────────────────────────────────── -->
+  <text x="430" y="26" text-anchor="middle" font-family="Courier New, monospace" font-size="11" fill="#2a3a5a" letter-spacing="5">HOW VIBE-PET WORKS</text>
+
+  <!-- ─── BOX: SIGNAL SOURCES (left) ──────────────────────────────────── -->
+  <rect x="18" y="40" width="216" height="192" rx="4" fill="#0a0d1a" stroke="#1a2438" stroke-width="1"/>
+  <text x="126" y="60" text-anchor="middle" font-family="Courier New, monospace" font-size="10" fill="#8ab4f8" letter-spacing="3">SIGNAL SOURCES</text>
+
+  <!-- hook.js -->
+  <rect x="28" y="70" width="196" height="38" rx="3" fill="#0d1228" stroke="#1e2e50" stroke-width="1"/>
+  <text x="126" y="86" text-anchor="middle" font-family="Courier New, monospace" font-size="10" fill="#40C4FF">hook.js</text>
+  <text x="126" y="100" text-anchor="middle" font-family="Courier New, monospace" font-size="8" fill="#3a4a6a">PreToolUse · before each tool</text>
+
+  <!-- stop_hook.js -->
+  <rect x="28" y="116" width="196" height="38" rx="3" fill="#0d1228" stroke="#1e2e50" stroke-width="1"/>
+  <text x="126" y="132" text-anchor="middle" font-family="Courier New, monospace" font-size="10" fill="#40C4FF">stop_hook.js</text>
+  <text x="126" y="146" text-anchor="middle" font-family="Courier New, monospace" font-size="8" fill="#3a4a6a">Stop · after each reply</text>
+
+  <!-- JSONL files -->
+  <rect x="28" y="162" width="196" height="38" rx="3" fill="#0d1228" stroke="#1e2e50" stroke-width="1"/>
+  <text x="126" y="178" text-anchor="middle" font-family="Courier New, monospace" font-size="10" fill="#40C4FF">JSONL files</text>
+  <text x="126" y="192" text-anchor="middle" font-family="Courier New, monospace" font-size="8" fill="#3a4a6a">chokidar · subagent sessions</text>
+
+  <!-- ─── ARROWS → watcher ──────────────────────────────────────────── -->
+  <line x1="224" y1="89" x2="318" y2="102" stroke="#1e3060" stroke-width="1.2" marker-end="url(#arr-blue)"/>
+  <text x="268" y="88" text-anchor="middle" font-family="Courier New, monospace" font-size="8" fill="#2a4060">HTTP :3722</text>
+
+  <line x1="224" y1="135" x2="318" y2="132" stroke="#1e3060" stroke-width="1.2" marker-end="url(#arr-blue)"/>
+  <text x="268" y="128" text-anchor="middle" font-family="Courier New, monospace" font-size="8" fill="#2a4060">HTTP :3722</text>
+
+  <line x1="224" y1="181" x2="318" y2="162" stroke="#1e3060" stroke-width="1.2" marker-end="url(#arr-blue)"/>
+  <text x="268" y="183" text-anchor="middle" font-family="Courier New, monospace" font-size="8" fill="#2a4060">file events</text>
+
+  <!-- ─── BOX: WATCHER.JS (center) ─────────────────────────────────────── -->
+  <rect x="322" y="40" width="218" height="192" rx="4" fill="#0a0d1a" stroke="#1a2438" stroke-width="1"/>
+  <text x="431" y="60" text-anchor="middle" font-family="Courier New, monospace" font-size="10" fill="#8ab4f8" letter-spacing="3">WATCHER.JS</text>
+  <text x="431" y="73" text-anchor="middle" font-family="Courier New, monospace" font-size="8" fill="#2a3a5a">Node.js process</text>
+
+  <rect x="334" y="80" width="194" height="26" rx="2" fill="#0d1630" stroke="#1a2e50" stroke-width="1"/>
+  <text x="431" y="97" text-anchor="middle" font-family="Courier New, monospace" font-size="9" fill="#5a8a5a">HTTP server  :3722</text>
+
+  <rect x="334" y="114" width="194" height="74" rx="2" fill="#0d1428" stroke="#1a2e50" stroke-width="1"/>
+  <text x="431" y="131" text-anchor="middle" font-family="Courier New, monospace" font-size="9" fill="#D77757" letter-spacing="2">STATE MACHINE</text>
+  <text x="431" y="146" text-anchor="middle" font-family="Courier New, monospace" font-size="8" fill="#2a3a5a">events → pet state</text>
+  <text x="431" y="160" text-anchor="middle" font-family="Courier New, monospace" font-size="8" fill="#2a3a5a">settle timer  8 s</text>
+  <text x="431" y="174" text-anchor="middle" font-family="Courier New, monospace" font-size="8" fill="#2a3a5a">idle timers  90 s / 300 s</text>
+
+  <rect x="334" y="196" width="194" height="26" rx="2" fill="#0d1630" stroke="#1a2e50" stroke-width="1"/>
+  <text x="431" y="213" text-anchor="middle" font-family="Courier New, monospace" font-size="9" fill="#5a8a5a">WebSocket  :3721</text>
+
+  <!-- ─── ARROW → browser ──────────────────────────────────────────── -->
+  <line x1="540" y1="136" x2="630" y2="136" stroke="#1a5030" stroke-width="1.2" marker-end="url(#arr-green)"/>
+  <text x="585" y="129" text-anchor="middle" font-family="Courier New, monospace" font-size="8" fill="#1a4028">WebSocket</text>
+  <text x="585" y="145" text-anchor="middle" font-family="Courier New, monospace" font-size="8" fill="#1a4028">:3721</text>
+
+  <!-- ─── BOX: BROWSER (right) ──────────────────────────────────────── -->
+  <rect x="634" y="40" width="208" height="192" rx="4" fill="#0a0d1a" stroke="#1a2438" stroke-width="1"/>
+  <text x="738" y="60" text-anchor="middle" font-family="Courier New, monospace" font-size="10" fill="#8ab4f8" letter-spacing="3">BROWSER</text>
+
+  <rect x="646" y="70" width="184" height="38" rx="3" fill="#0d1228" stroke="#1e2e50" stroke-width="1"/>
+  <text x="738" y="86" text-anchor="middle" font-family="Courier New, monospace" font-size="10" fill="#D77757">live_demo.html</text>
+  <text x="738" y="100" text-anchor="middle" font-family="Courier New, monospace" font-size="8" fill="#3a4a6a">Canvas 2D · pixel rendering</text>
+
+  <!-- Pets row -->
+  <text x="681" y="138" text-anchor="middle" font-family="Courier New, monospace" font-size="22" fill="#DE886D">🐾</text>
+  <text x="719" y="145" text-anchor="middle" font-family="Courier New, monospace" font-size="26" fill="#DE886D">🐾</text>
+  <text x="758" y="138" text-anchor="middle" font-family="Courier New, monospace" font-size="22" fill="#DE886D">🐾</text>
+  <text x="794" y="146" text-anchor="middle" font-family="Courier New, monospace" font-size="26" fill="#DE886D">🐾</text>
+
+  <text x="738" y="168" text-anchor="middle" font-family="Courier New, monospace" font-size="8" fill="#3a4a6a">one panel per Claude session</text>
+  <text x="738" y="182" text-anchor="middle" font-family="Courier New, monospace" font-size="8" fill="#3a4a6a">state → animation in real time</text>
+
+  <rect x="646" y="196" width="184" height="26" rx="3" fill="#0d1228" stroke="#1e2e50" stroke-width="1"/>
+  <text x="738" y="213" text-anchor="middle" font-family="Courier New, monospace" font-size="8" fill="#3a4a6a">active state elevated  ↑  22 px</text>
+
+
+  <!-- ─── SECTION DIVIDER ──────────────────────────────────────────────── -->
+  <line x1="40" y1="252" x2="820" y2="252" stroke="#111828" stroke-width="1"/>
+  <text x="430" y="268" text-anchor="middle" font-family="Courier New, monospace" font-size="10" fill="#2a3a5a" letter-spacing="5">STATE MACHINE</text>
+
+  <!-- ─── WORKING STATES (row 1) ───────────────────────────────────────── -->
+  <!-- TYPING -->
+  <rect x="60" y="282" width="138" height="46" rx="4" fill="#0d1a14" stroke="#1e3a28" stroke-width="1"/>
+  <text x="129" y="301" text-anchor="middle" font-family="Courier New, monospace" font-size="10" fill="#D77757" letter-spacing="2">TYPING</text>
+  <text x="129" y="318" text-anchor="middle" font-family="Courier New, monospace" font-size="8" fill="#3a5a40">Write · Edit · Bash</text>
+
+  <!-- THINKING -->
+  <rect x="222" y="282" width="138" height="46" rx="4" fill="#0d1a14" stroke="#1e3a28" stroke-width="1"/>
+  <text x="291" y="301" text-anchor="middle" font-family="Courier New, monospace" font-size="10" fill="#D77757" letter-spacing="2">THINKING</text>
+  <text x="291" y="318" text-anchor="middle" font-family="Courier New, monospace" font-size="8" fill="#3a5a40">Read · Grep · Glob · Search</text>
+
+  <!-- JUGGLING -->
+  <rect x="384" y="282" width="138" height="46" rx="4" fill="#0d1a14" stroke="#1e3a28" stroke-width="1"/>
+  <text x="453" y="301" text-anchor="middle" font-family="Courier New, monospace" font-size="10" fill="#D77757" letter-spacing="2">JUGGLING</text>
+  <text x="453" y="318" text-anchor="middle" font-family="Courier New, monospace" font-size="8" fill="#3a5a40">Agent · 3+ rapid tools</text>
+
+  <!-- HAPPY -->
+  <rect x="546" y="282" width="138" height="46" rx="4" fill="#0d1a14" stroke="#1e3a28" stroke-width="1"/>
+  <text x="615" y="301" text-anchor="middle" font-family="Courier New, monospace" font-size="10" fill="#D77757" letter-spacing="2">HAPPY</text>
+  <text x="615" y="318" text-anchor="middle" font-family="Courier New, monospace" font-size="8" fill="#3a5a40">Stop hook (reply done)</text>
+
+  <!-- "8s settle / reply done" label above arrows -->
+  <text x="248" y="276" text-anchor="middle" font-family="Courier New, monospace" font-size="7" fill="#2a3a2a">8s settle</text>
+
+  <!-- ─── ARROWS down to IDLE ──────────────────────────────────────────── -->
+  <line x1="129" y1="328" x2="340" y2="398" stroke="#1e3020" stroke-width="1" marker-end="url(#arr-gray)"/>
+  <line x1="291" y1="328" x2="360" y2="398" stroke="#1e3020" stroke-width="1" marker-end="url(#arr-gray)"/>
+  <line x1="453" y1="328" x2="390" y2="398" stroke="#1e3020" stroke-width="1" marker-end="url(#arr-gray)"/>
+  <line x1="615" y1="328" x2="420" y2="398" stroke="#1e3020" stroke-width="1" marker-end="url(#arr-gray)"/>
+
+  <!-- ─── IDLE ───────────────────────────────────────────────────────── -->
+  <rect x="294" y="398" width="138" height="40" rx="4" fill="#0d1228" stroke="#1a2438" stroke-width="1"/>
+  <text x="363" y="414" text-anchor="middle" font-family="Courier New, monospace" font-size="10" fill="#8ab4f8" letter-spacing="2">IDLE</text>
+  <text x="363" y="430" text-anchor="middle" font-family="Courier New, monospace" font-size="8" fill="#2a3a5a">waiting for next prompt</text>
+
+  <!-- IDLE → SLEEPING arrow -->
+  <line x1="363" y1="438" x2="363" y2="462" stroke="#334" stroke-width="1" marker-end="url(#arr-gray)"/>
+  <text x="395" y="453" font-family="Courier New, monospace" font-size="7" fill="#2a3040">90 s</text>
+
+  <!-- ─── SLEEPING ──────────────────────────────────────────────────── -->
+  <rect x="294" y="462" width="138" height="40" rx="4" fill="#0d1228" stroke="#1a2438" stroke-width="1"/>
+  <text x="363" y="478" text-anchor="middle" font-family="Courier New, monospace" font-size="10" fill="#8ab4f8" letter-spacing="2">SLEEPING</text>
+  <text x="363" y="494" text-anchor="middle" font-family="Courier New, monospace" font-size="8" fill="#2a3a5a">zzz  ·  no activity</text>
+
+  <!-- SLEEPING → DISCONNECTED arrow -->
+  <line x1="432" y1="482" x2="568" y2="482" stroke="#222" stroke-width="1" marker-end="url(#arr-gray)"/>
+  <text x="500" y="476" text-anchor="middle" font-family="Courier New, monospace" font-size="7" fill="#1a2030">300 s</text>
+
+  <!-- ─── DISCONNECTED ──────────────────────────────────────────────── -->
+  <rect x="572" y="462" width="168" height="40" rx="4" fill="#080c16" stroke="#14181e" stroke-width="1"/>
+  <text x="656" y="478" text-anchor="middle" font-family="Courier New, monospace" font-size="10" fill="#222840" letter-spacing="2">DISCONNECTED</text>
+  <text x="656" y="494" text-anchor="middle" font-family="Courier New, monospace" font-size="8" fill="#1a2030">hidden from display</text>
+
+  <!-- ─── NOTE: "current tool in parens" ─────────────────────────────── -->
+  <rect x="720" y="282" width="122" height="62" rx="3" fill="#0a0a14" stroke="#14161e" stroke-width="1"/>
+  <text x="781" y="300" text-anchor="middle" font-family="Courier New, monospace" font-size="8" fill="#2a3a5a">tool shown in label:</text>
+  <text x="781" y="316" text-anchor="middle" font-family="Courier New, monospace" font-size="9" fill="#D77757">TYPING (Edit)</text>
+  <text x="781" y="330" text-anchor="middle" font-family="Courier New, monospace" font-size="9" fill="#D77757">THINKING (Read)</text>
+
+  <!-- active state elevated note -->
+  <text x="154" y="372" font-family="Courier New, monospace" font-size="7" fill="#2a3a2a">↑ active states elevated 22 px on screen</text>
+
+</svg>
+</body>
+</html>
