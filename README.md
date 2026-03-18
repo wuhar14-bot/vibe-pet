@@ -1,5 +1,9 @@
 # 🐾 Vibe Pet
 
+<p align="center">
+  <img src="docs/crab.gif" alt="vibe-pet crab" width="400">
+</p>
+
 A pixel-art companion that lives in your browser and reacts to what Claude Code is doing — in real time.
 
 One panel appears per active Claude Code session. When Claude is typing, your pet types. When Claude is thinking, it stares into the void. When it's done, it throws its arms up.
