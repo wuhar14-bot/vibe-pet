@@ -75,11 +75,11 @@ class Session {
       this.clearHappy();
       const names = event.tools;
       this.currentTool = names[0] ?? null;
-      if (names.some(n => n === 'Agent'))              { this.setState('juggling'); this.startSettle(); return; }
-      if (this.toolWindow.length > 3)                  { this.setState('juggling'); this.startSettle(); return; }
-      if (names.some(n => WRITE_TOOLS.has(n)))         { this.setState('typing');   this.startSettle(); return; }
-      if (names.some(n => SEARCH_TOOLS.has(n)))        { this.setState('juggling'); this.startSettle(); return; }
-      this.setState('typing'); this.startSettle();  // unknown tool → assume writing
+      if (names.some(n => n === 'Agent'))              { this.setState('juggling'); this.startSettle(); this.onChanged(); return; }
+      if (this.toolWindow.length > 3)                  { this.setState('juggling'); this.startSettle(); this.onChanged(); return; }
+      if (names.some(n => WRITE_TOOLS.has(n)))         { this.setState('typing');   this.startSettle(); this.onChanged(); return; }
+      if (names.some(n => SEARCH_TOOLS.has(n)))        { this.setState('juggling'); this.startSettle(); this.onChanged(); return; }
+      this.setState('typing'); this.startSettle(); this.onChanged();  // unknown tool → assume writing
       return;
     }
 

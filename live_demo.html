@@ -582,5 +582,62 @@ function connectWS() {
 connectWS();
 window.addEventListener('resize', refreshScales);
 </script>
+
+<!-- ── Resize grip ────────────────────────────────────────────────── -->
+<div id="vp-grip" style="
+  position:fixed; bottom:0; right:0;
+  width:18px; height:18px; cursor:se-resize; z-index:2147483647;
+  background: linear-gradient(135deg,
+    transparent 40%, rgba(255,255,255,0.55) 40%, rgba(255,255,255,0.55) 55%, transparent 55%,
+    transparent 70%, rgba(255,255,255,0.55) 70%, rgba(255,255,255,0.55) 85%, transparent 85%);
+  user-select:none;
+"></div>
+
+<!-- ── Window interaction (drag/resize/close) — lives here, not in launch.py injection ── -->
+<script>
+(function() {
+  const grip = document.getElementById('vp-grip');
+  let mode = null;
+  let startScreenX, startScreenY;
+
+  function api(method, ...args) {
+    if (window.pywebview && window.pywebview.api && window.pywebview.api[method])
+      window.pywebview.api[method](...args);
+  }
+
+  // Grip → resize
+  grip.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    mode = 'resize';
+    startScreenX = e.screenX; startScreenY = e.screenY;
+    grip.setPointerCapture(e.pointerId);
+    e.preventDefault(); e.stopPropagation();
+  });
+
+  // Body drag handled by easy_drag=True in pywebview
+  document.body.style.cursor = 'move';
+
+  document.addEventListener('pointermove', (e) => {
+    if (mode !== 'resize') return;
+    const dw = e.screenX - startScreenX;
+    const dh = e.screenY - startScreenY;
+    if (Math.abs(dw) < 2 && Math.abs(dh) < 2) return;
+    api('resize_by', dw, dh);
+    startScreenX = e.screenX;
+    startScreenY = e.screenY;
+  });
+
+  document.addEventListener('pointerup', () => { mode = null; });
+
+  // Close overlay
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.72);align-items:center;justify-content:center;font-family:Courier New,monospace;';
+  overlay.innerHTML = '<div style="background:#12121e;border:1px solid #333;border-radius:6px;padding:20px 28px;text-align:center"><div style="color:#ccc;font-size:13px;margin-bottom:14px;letter-spacing:1px">Close Vibe Pet?</div><div style="display:flex;gap:10px;justify-content:center"><button id="_cy" style="background:#c0392b;color:#fff;border:none;border-radius:4px;padding:5px 16px;cursor:pointer;font-size:12px">Yes</button><button id="_cn" style="background:#2a2a44;color:#ccc;border:none;border-radius:4px;padding:5px 16px;cursor:pointer;font-size:12px">Cancel</button></div></div>';
+  document.body.appendChild(overlay);
+  overlay.querySelector('#_cy').onclick = () => api('close_window');
+  overlay.querySelector('#_cn').onclick = () => overlay.style.display = 'none';
+  document.addEventListener('contextmenu', (e) => { e.preventDefault(); overlay.style.display = 'flex'; });
+})();
+</script>
 </body>
 </html>
