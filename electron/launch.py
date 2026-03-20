@@ -26,12 +26,9 @@ class Api:
     def set_window(self, w):
         self._window = w
 
-    def resize_by(self, dw, dh):
-        # _window.width/height and JS clientX delta are both in logical (CSS) pixels — no DPR needed
+    def resize_window(self, w, h):
         if self._window:
-            w = max(200, self._window.width + int(dw))
-            h = max(120, self._window.height + int(dh))
-            self._window.resize(w, h)
+            self._window.resize(int(w), int(h))
 
     def close_window(self):
         if self._window:

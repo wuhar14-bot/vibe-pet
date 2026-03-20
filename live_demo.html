@@ -598,7 +598,7 @@ window.addEventListener('resize', refreshScales);
 (function() {
   const grip = document.getElementById('vp-grip');
   let mode = null;
-  let startScreenX, startScreenY;
+  let startScreenX, startScreenY, startW, startH;
 
   function api(method, ...args) {
     if (window.pywebview && window.pywebview.api && window.pywebview.api[method])
@@ -610,6 +610,7 @@ window.addEventListener('resize', refreshScales);
     if (e.button !== 0) return;
     mode = 'resize';
     startScreenX = e.screenX; startScreenY = e.screenY;
+    startW = window.outerWidth; startH = window.outerHeight;
     grip.setPointerCapture(e.pointerId);
     e.preventDefault(); e.stopPropagation();
   });
@@ -622,9 +623,7 @@ window.addEventListener('resize', refreshScales);
     const dw = e.screenX - startScreenX;
     const dh = e.screenY - startScreenY;
     if (Math.abs(dw) < 2 && Math.abs(dh) < 2) return;
-    api('resize_by', dw, dh);
-    startScreenX = e.screenX;
-    startScreenY = e.screenY;
+    api('resize_window', Math.max(200, startW + dw), Math.max(120, startH + dh));
   });
 
   document.addEventListener('pointerup', () => { mode = null; });
